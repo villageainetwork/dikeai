@@ -129,6 +129,10 @@ HTML_PAGE = """
                         font-size: 14px; font-weight: 600; cursor: pointer;
                         margin-top: 16px; }
         .download-btn:hover { background: #0F6E56; }
+        .footer { text-align: center; font-size: 11px; color: #999;
+                  margin-top: 20px; padding-top: 16px;
+                  border-top: 1px solid #eee; }
+        .footer a { color: #185FA5; text-decoration: none; }
     </style>
 </head>
 <body>
@@ -190,7 +194,12 @@ HTML_PAGE = """
         </form>
     </div>
     {% endif %}
+
+    <div class="footer">
+        Powered by <a href="https://strategicpolicylab.com">Strategic Policy Lab</a>
+    </div>
 </div>
+
 <script>
 const descriptions = {
     {% for reg_name, reg_data in regulations.items() %}
@@ -411,9 +420,10 @@ def download_pdf():
 
     story.append(Spacer(1, 8*mm))
     story.append(Paragraph(
-        "This report was generated automatically by AI Governance Audit Tool. "
+        "This report was generated automatically by DIKE AI. "
         "It is intended as a preliminary assessment only and does not constitute "
-        "legal advice. Consult a qualified legal professional for formal compliance guidance.",
+        "legal advice. Consult a qualified legal professional for formal compliance guidance. "
+        "Powered by Strategic Policy Lab — strategicpolicylab.com",
         footer_style
     ))
 
@@ -422,7 +432,7 @@ def download_pdf():
 
     response = make_response(buffer.read())
     response.headers["Content-Type"] = "application/pdf"
-    response.headers["Content-Disposition"] = "attachment; filename=compliance_audit_report.pdf"
+    response.headers["Content-Disposition"] = "attachment; filename=dike_ai_compliance_report.pdf"
     return response
 
 if __name__ == "__main__":
