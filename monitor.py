@@ -1,6 +1,6 @@
 from groq import Groq
 import os
-groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY", "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"))
+groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 ORG_TYPES = {
     "Indian Startup": "an early-stage or growth-stage Indian startup handling user data",
