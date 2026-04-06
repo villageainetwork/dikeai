@@ -1,4 +1,5 @@
-from flask import Flask, request, render_template_string, make_response, session
+from flask import Flask, request, render_template_string, make_response, session, redirect, url_for
+from monitor import analyse_impact, ORG_TYPES
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.colors import HexColor
@@ -78,6 +79,10 @@ HTML_PAGE = """
         body { font-family: Arial, sans-serif; background: #f5f5f5;
                min-height: 100vh; padding: 40px 20px; }
         .container { max-width: 720px; margin: 0 auto; }
+        .nav { display: flex; gap: 12px; margin-bottom: 28px; }
+        .nav a { padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; text-decoration: none; }
+        .nav a.active { background: #185FA5; color: white; }
+        .nav a.inactive { background: white; color: #185FA5; border: 1px solid #185FA5; }
         .header { margin-bottom: 28px; }
         .header h1 { font-size: 24px; font-weight: 600; color: #111; margin-bottom: 4px; }
         .header p { font-size: 13px; color: #666; }
@@ -137,6 +142,11 @@ HTML_PAGE = """
 </head>
 <body>
 <div class="container">
+    <div class="nav">
+        <a href="/" class="active">DIKE Audit</a>
+        <a href="/monitor" class="inactive">DIKE Monitor</a>
+    </div>
+
     <div class="header">
         <h1>DIKE AI</h1>
         <p>Instantly check any policy document against major data protection regulations</p>
@@ -214,6 +224,96 @@ function updateDesc(sel) {
 </html>
 """
 
+MONITOR_PAGE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DIKE Monitor — Regulatory Impact Analyser</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; background: #f5f5f5; min-height: 100vh; padding: 40px 20px; }
+        .container { max-width: 720px; margin: 0 auto; }
+        .nav { display: flex; gap: 12px; margin-bottom: 28px; }
+        .nav a { padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; text-decoration: none; }
+        .nav a.active { background: #185FA5; color: white; }
+        .nav a.inactive { background: white; color: #185FA5; border: 1px solid #185FA5; }
+        .header { margin-bottom: 28px; }
+        .header h1 { font-size: 24px; font-weight: 600; color: #111; margin-bottom: 4px; }
+        .header p { font-size: 13px; color: #666; }
+        .card { background: white; border-radius: 10px; padding: 24px; border: 1px solid #e5e5e5; margin-bottom: 20px; }
+        label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #555; margin-bottom: 6px; }
+        select { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; color: #111; background: white; margin-bottom: 16px; }
+        textarea { width: 100%; height: 160px; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; resize: vertical; color: #333; line-height: 1.6; margin-bottom: 16px; }
+        textarea:focus { outline: none; border-color: #185FA5; }
+        button { width: 100%; padding: 12px; background: #185FA5; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; }
+        button:hover { background: #0C447C; }
+        .result-card { background: white; border-radius: 10px; padding: 24px; border: 1px solid #e5e5e5; }
+        .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .result-title { font-size: 14px; font-weight: 600; color: #111; }
+        .impact-badge { padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+        .HIGH { background: #fde8e8; color: #9b1c1c; }
+        .MEDIUM { background: #fdf3c8; color: #723b13; }
+        .LOW { background: #def7ec; color: #03543f; }
+        .section { margin-bottom: 16px; }
+        .section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #185FA5; margin-bottom: 6px; }
+        .section-content { font-size: 13px; color: #444; line-height: 1.7; white-space: pre-wrap; }
+        .footer { text-align: center; font-size: 11px; color: #999; margin-top: 20px; padding-top: 16px; border-top: 1px solid #eee; }
+        .footer a { color: #185FA5; text-decoration: none; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="nav">
+        <a href="/" class="inactive">DIKE Audit</a>
+        <a href="/monitor" class="active">DIKE Monitor</a>
+    </div>
+
+    <div class="header">
+        <h1>DIKE Monitor</h1>
+        <p>Paste any regulatory update and get an instant impact analysis for your organisation</p>
+    </div>
+
+    <div class="card">
+        <form method="POST" action="/monitor">
+            <label>Your organisation type</label>
+            <select name="org_type">
+                {% for org in org_types %}
+                <option value="{{ org }}" {% if org == selected_org %}selected{% endif %}>{{ org }}</option>
+                {% endfor %}
+            </select>
+
+            <label>Paste regulatory update or news</label>
+            <textarea name="regulatory_text" placeholder="Paste any regulatory update, policy announcement, new law, or compliance news here...">{{ regulatory_text }}</textarea>
+
+            <button type="submit">Analyse impact</button>
+        </form>
+    </div>
+
+    {% if sections %}
+    <div class="result-card">
+        <div class="result-header">
+            <span class="result-title">Impact Analysis — {{ selected_org }}</span>
+            <span class="impact-badge {{ impact_level }}">{{ impact_level }} IMPACT</span>
+        </div>
+
+        {% for section in sections %}
+        <div class="section">
+            <div class="section-title">{{ section.title }}</div>
+            <div class="section-content">{{ section.content }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="footer">
+        Powered by <a href="https://strategicpolicylab.com">Strategic Policy Lab</a>
+    </div>
+</div>
+</body>
+</html>
+"""
+
+
 def parse_results(ai_response):
     results = []
     lines = ai_response.strip().split("\n")
@@ -252,6 +352,54 @@ def parse_results(ai_response):
             "explanation": "Analysis completed but response format was unexpected. Please try again."
         })
     return results
+
+
+def parse_monitor_results(ai_response):
+    sections = []
+    impact_level = "MEDIUM"
+
+    current_title = ""
+    current_content = []
+
+    section_titles = ["SUMMARY", "IMPACT LEVEL", "KEY CHANGES", "WHO IS AFFECTED", "REQUIRED ACTIONS", "DEADLINE", "RISK IF IGNORED"]
+
+    for line in ai_response.split("\n"):
+        line = line.strip()
+        line = line.lstrip("#").strip()
+        if not line:
+            continue
+
+        matched_title = None
+        for title in section_titles:
+            if line.upper().startswith(title):
+                matched_title = title
+                break
+
+        if matched_title:
+            if current_title and current_content:
+                sections.append({"title": current_title, "content": "\n".join(current_content).strip()})
+            current_title = matched_title
+            remainder = line[len(matched_title):].strip(" :-")
+            current_content = [remainder] if remainder else []
+        else:
+            if current_title:
+                current_content.append(line)
+
+    if current_title and current_content:
+        sections.append({"title": current_title, "content": "\n".join(current_content).strip()})
+
+    for section in sections:
+        if section["title"] == "IMPACT LEVEL":
+            content_upper = section["content"].upper()
+            if "HIGH" in content_upper:
+                impact_level = "HIGH"
+            elif "LOW" in content_upper:
+                impact_level = "LOW"
+            else:
+                impact_level = "MEDIUM"
+
+    return sections, impact_level
+
 
 @app.route("/", methods=["GET", "POST"])
 def home():
@@ -316,6 +464,35 @@ One line per checklist item. No extra text."""
         partial_count=partial_count,
         pass_count=pass_count
     )
+
+
+@app.route("/monitor", methods=["GET", "POST"])
+def monitor():
+    sections = []
+    regulatory_text = ""
+    selected_org = "Indian Startup"
+    impact_level = "MEDIUM"
+
+    if request.method == "POST":
+        regulatory_text = request.form.get("regulatory_text", "")
+        selected_org = request.form.get("org_type", "Indian Startup")
+
+        if regulatory_text.strip():
+            try:
+                raw_response = analyse_impact(regulatory_text, selected_org)
+                sections, impact_level = parse_monitor_results(raw_response)
+            except Exception as e:
+                sections = [{"title": "ERROR", "content": f"An error occurred: {str(e)}"}]
+
+    return render_template_string(
+        MONITOR_PAGE,
+        sections=sections,
+        regulatory_text=regulatory_text,
+        selected_org=selected_org,
+        org_types=list(ORG_TYPES.keys()),
+        impact_level=impact_level
+    )
+
 
 @app.route("/download-pdf", methods=["POST"])
 def download_pdf():
@@ -435,6 +612,8 @@ def download_pdf():
     response.headers["Content-Disposition"] = "attachment; filename=dike_ai_compliance_report.pdf"
     return response
 
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
+
