@@ -10,11 +10,12 @@ import datetime
 import io
 import json
 import os
-
+from dotenv import load_dotenv
+load_dotenv()
 app = Flask(__name__)
 app.secret_key = "governance-audit-secret-key-2024"
 
-groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY", "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"))
+groq_client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 REGULATIONS = {
     "DPDP Act 2023": {
