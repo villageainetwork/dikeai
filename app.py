@@ -74,122 +74,196 @@ HTML_PAGE = """
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DIKE AI — Governance Audit</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Arial, sans-serif; background: #f5f5f5;
-               min-height: 100vh; padding: 40px 20px; }
-        .container { max-width: 720px; margin: 0 auto; }
-        .nav { display: flex; gap: 12px; margin-bottom: 28px; }
-        .nav a { padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; text-decoration: none; }
-        .nav a.active { background: #185FA5; color: white; }
-        .nav a.inactive { background: white; color: #185FA5; border: 1px solid #185FA5; }
-        .header { margin-bottom: 28px; }
-        .header h1 { font-size: 24px; font-weight: 600; color: #111; margin-bottom: 4px; }
-        .header p { font-size: 13px; color: #666; }
-        .card { background: white; border-radius: 10px; padding: 24px;
-                border: 1px solid #e5e5e5; margin-bottom: 20px; }
-        label { display: block; font-size: 11px; font-weight: 700;
-                text-transform: uppercase; letter-spacing: .06em;
-                color: #555; margin-bottom: 6px; }
-        select { width: 100%; padding: 10px 12px; border: 1px solid #ddd;
-                 border-radius: 6px; font-size: 13px; color: #111;
-                 background: white; margin-bottom: 6px; }
-        .reg-desc { font-size: 12px; color: #888; margin-bottom: 18px; }
-        textarea { width: 100%; height: 140px; padding: 12px;
-                   border: 1px solid #ddd; border-radius: 6px;
-                   font-size: 13px; resize: vertical; color: #333;
-                   line-height: 1.6; margin-bottom: 16px; }
-        textarea:focus { outline: none; border-color: #185FA5; }
-        button { width: 100%; padding: 12px; background: #185FA5;
-                 color: white; border: none; border-radius: 6px;
-                 font-size: 14px; font-weight: 600; cursor: pointer; }
-        button:hover { background: #0C447C; }
-        .results-header { display: flex; align-items: center;
-                          justify-content: space-between; margin-bottom: 14px; }
-        .results-title { font-size: 14px; font-weight: 600; color: #111; }
-        .reg-tag { font-size: 11px; padding: 3px 10px; border-radius: 20px;
-                   background: #E6F1FB; color: #0C447C; font-weight: 600; }
-        .result-item { display: flex; gap: 12px; align-items: flex-start;
-                       padding: 12px; border-radius: 8px; margin-bottom: 8px;
-                       border: 1px solid #eee; background: #fafafa; }
-        .badge { padding: 3px 9px; border-radius: 4px; font-weight: 700;
-                 font-size: 11px; white-space: nowrap; margin-top: 1px; }
-        .FAIL { background: #fde8e8; color: #9b1c1c; }
-        .PASS { background: #def7ec; color: #03543f; }
-        .PARTIAL { background: #fdf3c8; color: #723b13; }
-        .result-text { font-size: 13px; color: #444; line-height: 1.5; }
-        .summary { display: flex; gap: 10px; margin-bottom: 16px; }
-        .sum-box { flex: 1; text-align: center; padding: 10px;
-                   border-radius: 8px; border: 1px solid #eee; }
-        .sum-num { font-size: 22px; font-weight: 700; }
-        .sum-label { font-size: 11px; color: #888; margin-top: 2px; }
-        .fail-bg { background: #fde8e8; }
-        .pass-bg { background: #def7ec; }
-        .partial-bg { background: #fdf3c8; }
-        .fail-num { color: #9b1c1c; }
-        .pass-num { color: #03543f; }
-        .partial-num { color: #723b13; }
-        .download-btn { width: 100%; padding: 12px; background: #1D9E75;
-                        color: white; border: none; border-radius: 6px;
-                        font-size: 14px; font-weight: 600; cursor: pointer;
-                        margin-top: 16px; }
-        .download-btn:hover { background: #0F6E56; }
-        .footer { text-align: center; font-size: 11px; color: #999;
-                  margin-top: 20px; padding-top: 16px;
-                  border-top: 1px solid #eee; }
+        body { font-family: 'DM Sans', sans-serif; background: #f4f4f2; min-height: 100vh; }
+
+        /* Topbar */
+        .topbar { background: #ffffff; border-bottom: 0.5px solid #e8e8e5; padding: 0 32px; display: flex; align-items: center; justify-content: space-between; height: 56px; position: sticky; top: 0; z-index: 100; }
+        .logo { display: flex; align-items: center; gap: 10px; }
+        .logo-mark { width: 28px; height: 28px; background: #185FA5; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .logo-mark svg { width: 16px; height: 16px; }
+        .logo-text { font-size: 15px; font-weight: 500; color: #111; letter-spacing: -0.01em; }
+        .logo-badge { font-family: 'DM Mono', monospace; font-size: 10px; background: #E6F1FB; color: #185FA5; padding: 2px 7px; border-radius: 4px; font-weight: 500; }
+        .nav { display: flex; gap: 4px; }
+        .nav a { padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; text-decoration: none; transition: all 0.15s; border: 0.5px solid transparent; }
+        .nav a.active { background: #185FA5; color: white; border-color: #185FA5; }
+        .nav a.inactive { color: #666; border-color: #ddd; }
+        .nav a.inactive:hover { background: #f4f4f2; color: #111; }
+
+        /* Body */
+        .body { max-width: 760px; margin: 0 auto; padding: 40px 24px 60px; }
+
+        /* Hero */
+        .hero { margin-bottom: 32px; }
+        .hero-eyebrow { font-family: 'DM Mono', monospace; font-size: 11px; color: #185FA5; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+        .hero-dot { width: 6px; height: 6px; border-radius: 50%; background: #185FA5; display: inline-block; flex-shrink: 0; }
+        .hero h1 { font-size: 26px; font-weight: 300; color: #111; letter-spacing: -0.02em; line-height: 1.25; margin: 0 0 8px; }
+        .hero h1 strong { font-weight: 500; }
+        .hero p { font-size: 14px; color: #777; line-height: 1.6; margin: 0; max-width: 480px; }
+
+        /* Card */
+        .card { background: #ffffff; border-radius: 12px; border: 0.5px solid #e8e8e5; padding: 28px; margin-bottom: 16px; }
+
+        /* Section label */
+        .section-label { font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em; color: #999; margin-bottom: 10px; display: block; }
+
+        /* Regulation grid */
+        .reg-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 24px; }
+        .reg-option { border: 0.5px solid #e8e8e5; border-radius: 8px; padding: 12px 14px; cursor: pointer; transition: all 0.15s; background: #f9f9f7; }
+        .reg-option:hover { border-color: #185FA5; background: #EBF3FB; }
+        .reg-option.selected { border-color: #185FA5; background: #EBF3FB; }
+        .reg-option.selected .reg-name { color: #185FA5; }
+        .reg-name { font-size: 13px; font-weight: 500; color: #111; margin-bottom: 2px; }
+        .reg-desc-text { font-size: 11px; color: #999; line-height: 1.4; }
+
+        /* Textarea */
+        .textarea-wrap { position: relative; }
+        .dike-textarea { width: 100%; min-height: 160px; padding: 14px 16px; border: 0.5px solid #ddd; border-radius: 8px; font-size: 13px; font-family: 'DM Sans', sans-serif; color: #333; background: #ffffff; resize: vertical; line-height: 1.6; outline: none; transition: border-color 0.15s; }
+        .dike-textarea:focus { border-color: #185FA5; }
+        .dike-textarea::placeholder { color: #bbb; }
+        .char-count { position: absolute; bottom: 10px; right: 12px; font-size: 11px; color: #bbb; font-family: 'DM Mono', monospace; pointer-events: none; }
+
+        /* Loading bar */
+        .loading-bar { height: 2px; background: #eee; border-radius: 2px; margin-top: 14px; overflow: hidden; display: none; }
+        .loading-fill { height: 100%; width: 0%; background: #185FA5; border-radius: 2px; transition: width 0.3s ease; }
+        .loading-text { font-size: 12px; color: #999; margin-top: 8px; font-family: 'DM Mono', monospace; display: none; }
+
+        /* Submit button */
+        .submit-btn { width: 100%; padding: 13px; background: #185FA5; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; font-family: 'DM Sans', sans-serif; cursor: pointer; margin-top: 20px; transition: background 0.15s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .submit-btn:hover { background: #0C447C; }
+        .submit-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+        /* Divider */
+        .divider { display: flex; align-items: center; gap: 12px; margin: 28px 0; }
+        .divider-line { flex: 1; height: 0.5px; background: #e8e8e5; }
+        .divider-text { font-size: 11px; color: #bbb; font-family: 'DM Mono', monospace; white-space: nowrap; }
+
+        /* Results */
+        .results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+        .results-title { font-size: 13px; font-weight: 500; color: #111; }
+        .reg-pill { font-family: 'DM Mono', monospace; font-size: 10px; background: #E6F1FB; color: #185FA5; padding: 3px 9px; border-radius: 4px; font-weight: 500; }
+
+        .score-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+        .score-box { background: #f9f9f7; border-radius: 8px; padding: 14px; text-align: center; }
+        .score-num { font-size: 28px; font-weight: 300; letter-spacing: -0.02em; margin-bottom: 2px; }
+        .score-lbl { font-size: 10px; color: #999; font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.08em; }
+        .fail-num { color: #A32D2D; }
+        .pass-num { color: #0F6E56; }
+        .partial-num { color: #854F0B; }
+
+        .result-item { display: flex; gap: 12px; align-items: flex-start; padding: 13px; border-radius: 8px; border: 0.5px solid #e8e8e5; margin-bottom: 8px; background: #f9f9f7; }
+        .badge { font-size: 10px; font-family: 'DM Mono', monospace; font-weight: 500; padding: 3px 8px; border-radius: 4px; white-space: nowrap; margin-top: 1px; flex-shrink: 0; }
+        .FAIL { background: #FCEBEB; color: #791F1F; }
+        .PASS { background: #E1F5EE; color: #085041; }
+        .PARTIAL { background: #FAEEDA; color: #633806; }
+        .result-text { font-size: 13px; color: #555; line-height: 1.5; }
+
+        /* Download button */
+        .download-btn { width: 100%; padding: 11px; background: transparent; color: #0F6E56; border: 0.5px solid #1D9E75; border-radius: 8px; font-size: 13px; font-weight: 500; font-family: 'DM Sans', sans-serif; cursor: pointer; margin-top: 16px; transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .download-btn:hover { background: #E1F5EE; }
+        .download-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+        /* Footer */
+        .footer { text-align: center; font-size: 11px; color: #bbb; margin-top: 32px; padding-top: 20px; border-top: 0.5px solid #e8e8e5; font-family: 'DM Mono', monospace; }
         .footer a { color: #185FA5; text-decoration: none; }
+
+        @media (max-width: 540px) {
+            .topbar { padding: 0 16px; }
+            .body { padding: 24px 16px 48px; }
+            .reg-grid { grid-template-columns: 1fr; }
+            .logo-badge { display: none; }
+        }
     </style>
 </head>
 <body>
-<div class="container">
+
+<div class="topbar">
+    <div class="logo">
+        <div class="logo-mark">
+            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="2" y="2" width="5" height="12" rx="1" fill="white" opacity="0.9"/>
+                <rect x="9" y="2" width="5" height="7" rx="1" fill="white" opacity="0.6"/>
+                <rect x="9" y="11" width="5" height="3" rx="1" fill="white" opacity="0.6"/>
+            </svg>
+        </div>
+        <span class="logo-text">DIKE AI</span>
+        <span class="logo-badge">v1.0</span>
+    </div>
     <div class="nav">
         <a href="/" class="active">DIKE Audit</a>
         <a href="/monitor" class="inactive">DIKE Monitor</a>
     </div>
+</div>
 
-    <div class="header">
-        <h1>DIKE AI</h1>
-        <p>Instantly check any policy document against major data protection regulations</p>
+<div class="body">
+    <div class="hero">
+        <div class="hero-eyebrow"><span class="hero-dot"></span> AI Governance Compliance</div>
+        <h1>Audit your policy<br><strong>against global regulations</strong></h1>
+        <p>Paste any privacy policy or data governance document and get an instant compliance check across major frameworks.</p>
     </div>
 
     <div class="card">
-        <form method="POST" action="/">
-            <label>Select regulation</label>
-            <select name="regulation" onchange="updateDesc(this)">
-                {% for reg_name in regulations %}
-                <option value="{{ reg_name }}"
-                    {% if reg_name == selected_reg %}selected{% endif %}>
-                    {{ reg_name }}
-                </option>
+        <form method="POST" action="/" id="audit-form">
+            <span class="section-label">Select regulation</span>
+            <div class="reg-grid">
+                {% for reg_name, reg_data in regulations.items() %}
+                <div class="reg-option {% if reg_name == selected_reg %}selected{% endif %}"
+                     onclick="selectReg(this, '{{ reg_name }}', '{{ reg_data.description }}')">
+                    <div class="reg-name">{{ reg_name }}</div>
+                    <div class="reg-desc-text">{{ reg_data.description }}</div>
+                </div>
                 {% endfor %}
-            </select>
-            <p class="reg-desc" id="reg-desc">{{ reg_description }}</p>
-            <label>Paste your policy document</label>
-            <textarea name="policy"
-                placeholder="Paste your company privacy policy or data governance document here...">{{ policy }}</textarea>
-            <button type="submit">Analyse document</button>
+            </div>
+            <input type="hidden" name="regulation" id="regulation-input" value="{{ selected_reg }}">
+
+            <span class="section-label">Paste policy document</span>
+            <div class="textarea-wrap">
+                <textarea class="dike-textarea" name="policy" id="policy-input"
+                    placeholder="Paste your company privacy policy or data governance document here..."
+                    oninput="updateCount()">{{ policy }}</textarea>
+                <span class="char-count" id="char-count">0 words</span>
+            </div>
+
+            <div class="loading-bar" id="loading-bar"><div class="loading-fill" id="loading-fill"></div></div>
+            <div class="loading-text" id="loading-text">Analysing document...</div>
+
+            <button type="submit" class="submit-btn" onclick="startLoading()">
+                <svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Analyse document
+            </button>
         </form>
     </div>
 
     {% if results %}
+    <div class="divider">
+        <div class="divider-line"></div>
+        <div class="divider-text">audit results</div>
+        <div class="divider-line"></div>
+    </div>
+
     <div class="card">
         <div class="results-header">
-            <span class="results-title">Compliance audit result</span>
-            <span class="reg-tag">{{ selected_reg }}</span>
+            <span class="results-title">Compliance report</span>
+            <span class="reg-pill">{{ selected_reg }}</span>
         </div>
-        <div class="summary">
-            <div class="sum-box fail-bg">
-                <div class="sum-num fail-num">{{ fail_count }}</div>
-                <div class="sum-label">Failed</div>
+        <div class="score-row">
+            <div class="score-box">
+                <div class="score-num pass-num">{{ pass_count }}</div>
+                <div class="score-lbl">Pass</div>
             </div>
-            <div class="sum-box partial-bg">
-                <div class="sum-num partial-num">{{ partial_count }}</div>
-                <div class="sum-label">Partial</div>
+            <div class="score-box">
+                <div class="score-num partial-num">{{ partial_count }}</div>
+                <div class="score-lbl">Partial</div>
             </div>
-            <div class="sum-box pass-bg">
-                <div class="sum-num pass-num">{{ pass_count }}</div>
-                <div class="sum-label">Passed</div>
+            <div class="score-box">
+                <div class="score-num fail-num">{{ fail_count }}</div>
+                <div class="score-lbl">Fail</div>
             </div>
         </div>
         {% for item in results %}
@@ -200,6 +274,7 @@ HTML_PAGE = """
         {% endfor %}
         <form method="POST" action="/download-pdf">
             <button type="submit" class="download-btn">
+                <svg viewBox="0 0 16 16" fill="none"><path d="M8 2v8M4 7l4 4 4-4M2 13h12" stroke="#0F6E56" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 Download PDF report
             </button>
         </form>
@@ -207,19 +282,36 @@ HTML_PAGE = """
     {% endif %}
 
     <div class="footer">
-        Powered by <a href="https://strategicpolicylab.com">Strategic Policy Lab</a>
+        Powered by <a href="https://strategicpolicylab.com">Strategic Policy Lab</a> &nbsp;·&nbsp; Built with Groq + LLaMA 3.3
     </div>
 </div>
 
 <script>
-const descriptions = {
-    {% for reg_name, reg_data in regulations.items() %}
-    "{{ reg_name }}": "{{ reg_data.description }}",
-    {% endfor %}
-};
-function updateDesc(sel) {
-    document.getElementById('reg-desc').textContent = descriptions[sel.value];
+function selectReg(el, name, desc) {
+    document.querySelectorAll('.reg-option').forEach(o => o.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('regulation-input').value = name;
 }
+function updateCount() {
+    const val = document.getElementById('policy-input').value.trim();
+    const words = val ? val.split(/\s+/).length : 0;
+    document.getElementById('char-count').textContent = words + ' words';
+}
+function startLoading() {
+    const bar = document.getElementById('loading-bar');
+    const fill = document.getElementById('loading-fill');
+    const txt = document.getElementById('loading-text');
+    bar.style.display = 'block';
+    txt.style.display = 'block';
+    let p = 0;
+    const iv = setInterval(() => {
+        p += Math.random() * 12;
+        if (p >= 90) { p = 90; clearInterval(iv); }
+        fill.style.width = p + '%';
+    }, 300);
+}
+// Init word count on load
+document.addEventListener('DOMContentLoaded', updateCount);
 </script>
 </body>
 </html>
@@ -229,87 +321,183 @@ MONITOR_PAGE = """
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DIKE Monitor — Regulatory Impact Analyser</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Arial, sans-serif; background: #f5f5f5; min-height: 100vh; padding: 40px 20px; }
-        .container { max-width: 720px; margin: 0 auto; }
-        .nav { display: flex; gap: 12px; margin-bottom: 28px; }
-        .nav a { padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; text-decoration: none; }
-        .nav a.active { background: #185FA5; color: white; }
-        .nav a.inactive { background: white; color: #185FA5; border: 1px solid #185FA5; }
-        .header { margin-bottom: 28px; }
-        .header h1 { font-size: 24px; font-weight: 600; color: #111; margin-bottom: 4px; }
-        .header p { font-size: 13px; color: #666; }
-        .card { background: white; border-radius: 10px; padding: 24px; border: 1px solid #e5e5e5; margin-bottom: 20px; }
-        label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #555; margin-bottom: 6px; }
-        select { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; color: #111; background: white; margin-bottom: 16px; }
-        textarea { width: 100%; height: 160px; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; resize: vertical; color: #333; line-height: 1.6; margin-bottom: 16px; }
-        textarea:focus { outline: none; border-color: #185FA5; }
-        button { width: 100%; padding: 12px; background: #185FA5; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; }
-        button:hover { background: #0C447C; }
-        .result-card { background: white; border-radius: 10px; padding: 24px; border: 1px solid #e5e5e5; }
-        .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-        .result-title { font-size: 14px; font-weight: 600; color: #111; }
-        .impact-badge { padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; }
-        .HIGH { background: #fde8e8; color: #9b1c1c; }
-        .MEDIUM { background: #fdf3c8; color: #723b13; }
-        .LOW { background: #def7ec; color: #03543f; }
-        .section { margin-bottom: 16px; }
-        .section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #185FA5; margin-bottom: 6px; }
-        .section-content { font-size: 13px; color: #444; line-height: 1.7; white-space: pre-wrap; }
-        .footer { text-align: center; font-size: 11px; color: #999; margin-top: 20px; padding-top: 16px; border-top: 1px solid #eee; }
+        body { font-family: 'DM Sans', sans-serif; background: #f4f4f2; min-height: 100vh; }
+
+        .topbar { background: #ffffff; border-bottom: 0.5px solid #e8e8e5; padding: 0 32px; display: flex; align-items: center; justify-content: space-between; height: 56px; position: sticky; top: 0; z-index: 100; }
+        .logo { display: flex; align-items: center; gap: 10px; }
+        .logo-mark { width: 28px; height: 28px; background: #185FA5; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .logo-mark svg { width: 16px; height: 16px; }
+        .logo-text { font-size: 15px; font-weight: 500; color: #111; letter-spacing: -0.01em; }
+        .logo-badge { font-family: 'DM Mono', monospace; font-size: 10px; background: #E6F1FB; color: #185FA5; padding: 2px 7px; border-radius: 4px; font-weight: 500; }
+        .nav { display: flex; gap: 4px; }
+        .nav a { padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; text-decoration: none; transition: all 0.15s; border: 0.5px solid transparent; }
+        .nav a.active { background: #185FA5; color: white; border-color: #185FA5; }
+        .nav a.inactive { color: #666; border-color: #ddd; }
+        .nav a.inactive:hover { background: #f4f4f2; color: #111; }
+
+        .body { max-width: 760px; margin: 0 auto; padding: 40px 24px 60px; }
+
+        .hero { margin-bottom: 32px; }
+        .hero-eyebrow { font-family: 'DM Mono', monospace; font-size: 11px; color: #185FA5; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+        .hero-dot { width: 6px; height: 6px; border-radius: 50%; background: #185FA5; display: inline-block; flex-shrink: 0; }
+        .hero h1 { font-size: 26px; font-weight: 300; color: #111; letter-spacing: -0.02em; line-height: 1.25; margin: 0 0 8px; }
+        .hero h1 strong { font-weight: 500; }
+        .hero p { font-size: 14px; color: #777; line-height: 1.6; margin: 0; max-width: 480px; }
+
+        .card { background: #ffffff; border-radius: 12px; border: 0.5px solid #e8e8e5; padding: 28px; margin-bottom: 16px; }
+        .section-label { font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em; color: #999; margin-bottom: 10px; display: block; }
+
+        .reg-option { border: 0.5px solid #e8e8e5; border-radius: 8px; padding: 12px 14px; cursor: pointer; transition: all 0.15s; background: #f9f9f7; }
+        .reg-option:hover { border-color: #185FA5; background: #EBF3FB; }
+        .reg-option.selected { border-color: #185FA5; background: #EBF3FB; }
+        .reg-option.selected .reg-name { color: #185FA5; }
+        .reg-name { font-size: 13px; font-weight: 500; color: #111; margin-bottom: 2px; }
+
+        .dike-textarea { width: 100%; min-height: 160px; padding: 14px 16px; border: 0.5px solid #ddd; border-radius: 8px; font-size: 13px; font-family: 'DM Sans', sans-serif; color: #333; background: #ffffff; resize: vertical; line-height: 1.6; outline: none; transition: border-color 0.15s; }
+        .dike-textarea:focus { border-color: #185FA5; }
+        .dike-textarea::placeholder { color: #bbb; }
+
+        .loading-bar { height: 2px; background: #eee; border-radius: 2px; margin-top: 14px; overflow: hidden; display: none; }
+        .loading-fill { height: 100%; width: 0%; background: #185FA5; border-radius: 2px; transition: width 0.3s ease; }
+        .loading-text { font-size: 12px; color: #999; margin-top: 8px; font-family: 'DM Mono', monospace; display: none; }
+
+        .submit-btn { width: 100%; padding: 13px; background: #185FA5; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; font-family: 'DM Sans', sans-serif; cursor: pointer; margin-top: 20px; transition: background 0.15s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .submit-btn:hover { background: #0C447C; }
+        .submit-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+        .divider { display: flex; align-items: center; gap: 12px; margin: 28px 0; }
+        .divider-line { flex: 1; height: 0.5px; background: #e8e8e5; }
+        .divider-text { font-size: 11px; color: #bbb; font-family: 'DM Mono', monospace; white-space: nowrap; }
+
+        .results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 8px; }
+        .results-title { font-size: 13px; font-weight: 500; color: #111; }
+        .impact-badge { font-family: 'DM Mono', monospace; font-size: 10px; padding: 3px 9px; border-radius: 4px; font-weight: 500; }
+        .HIGH { background: #FCEBEB; color: #791F1F; }
+        .MEDIUM { background: #FAEEDA; color: #633806; }
+        .LOW { background: #E1F5EE; color: #085041; }
+
+        .section-block { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 0.5px solid #f0f0ee; }
+        .section-block:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .section-heading { font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em; color: #185FA5; margin-bottom: 8px; }
+        .section-body { font-size: 13px; color: #555; line-height: 1.7; white-space: pre-wrap; }
+
+        .footer { text-align: center; font-size: 11px; color: #bbb; margin-top: 32px; padding-top: 20px; border-top: 0.5px solid #e8e8e5; font-family: 'DM Mono', monospace; }
         .footer a { color: #185FA5; text-decoration: none; }
+
+        @media (max-width: 540px) {
+            .topbar { padding: 0 16px; }
+            .body { padding: 24px 16px 48px; }
+            .logo-badge { display: none; }
+        }
     </style>
 </head>
 <body>
-<div class="container">
+
+<div class="topbar">
+    <div class="logo">
+        <div class="logo-mark">
+            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="2" y="2" width="5" height="12" rx="1" fill="white" opacity="0.9"/>
+                <rect x="9" y="2" width="5" height="7" rx="1" fill="white" opacity="0.6"/>
+                <rect x="9" y="11" width="5" height="3" rx="1" fill="white" opacity="0.6"/>
+            </svg>
+        </div>
+        <span class="logo-text">DIKE AI</span>
+        <span class="logo-badge">v1.0</span>
+    </div>
     <div class="nav">
         <a href="/" class="inactive">DIKE Audit</a>
         <a href="/monitor" class="active">DIKE Monitor</a>
     </div>
+</div>
 
-    <div class="header">
-        <h1>DIKE Monitor</h1>
-        <p>Paste any regulatory update and get an instant impact analysis for your organisation</p>
+<div class="body">
+    <div class="hero">
+        <div class="hero-eyebrow"><span class="hero-dot"></span> AI Monitoring Intelligence</div>
+        <h1>Monitor emerging<br><strong>regulatory developments</strong></h1>
+        <p>Analyse the impact of new regulatory changes on your organisation type, powered by real-time AI analysis.</p>
     </div>
 
     <div class="card">
-        <form method="POST" action="/monitor">
-            <label>Your organisation type</label>
-            <select name="org_type">
+        <form method="POST" action="/monitor" id="monitor-form">
+            <span class="section-label">Organisation type</span>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 24px;">
                 {% for org in org_types %}
-                <option value="{{ org }}" {% if org == selected_org %}selected{% endif %}>{{ org }}</option>
+                <div class="reg-option {% if org == selected_org %}selected{% endif %}"
+                     onclick="selectOrg(this, '{{ org }}')" style="cursor:pointer;">
+                    <div class="reg-name">{{ org }}</div>
+                </div>
                 {% endfor %}
-            </select>
+            </div>
+            <input type="hidden" name="org_type" id="org-input" value="{{ selected_org }}">
 
-            <label>Paste regulatory update or news</label>
-            <textarea name="regulatory_text" placeholder="Paste any regulatory update, policy announcement, new law, or compliance news here...">{{ regulatory_text }}</textarea>
+            <span class="section-label">Paste regulatory update or news</span>
+            <textarea class="dike-textarea" name="regulatory_text"
+                placeholder="Paste any regulatory update, policy announcement, new law, or compliance news here...">{{ regulatory_text }}</textarea>
 
-            <button type="submit">Analyse impact</button>
+            <div class="loading-bar" id="loading-bar"><div class="loading-fill" id="loading-fill"></div></div>
+            <div class="loading-text" id="loading-text">Analysing regulatory impact...</div>
+
+            <button type="submit" class="submit-btn" onclick="startLoading()">
+                <svg viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Analyse impact
+            </button>
         </form>
     </div>
 
     {% if sections %}
-    <div class="result-card">
-        <div class="result-header">
-            <span class="result-title">Impact Analysis — {{ selected_org }}</span>
+    <div class="divider">
+        <div class="divider-line"></div>
+        <div class="divider-text">impact analysis</div>
+        <div class="divider-line"></div>
+    </div>
+
+    <div class="card">
+        <div class="results-header">
+            <span class="results-title">Impact report — {{ selected_org }}</span>
             <span class="impact-badge {{ impact_level }}">{{ impact_level }} IMPACT</span>
         </div>
-
         {% for section in sections %}
-        <div class="section">
-            <div class="section-title">{{ section.title }}</div>
-            <div class="section-content">{{ section.content }}</div>
+        <div class="section-block">
+            <div class="section-heading">{{ section.title }}</div>
+            <div class="section-body">{{ section.content }}</div>
         </div>
         {% endfor %}
     </div>
     {% endif %}
 
     <div class="footer">
-        Powered by <a href="https://strategicpolicylab.com">Strategic Policy Lab</a>
+        Powered by <a href="https://strategicpolicylab.com">Strategic Policy Lab</a> &nbsp;·&nbsp; Built with Groq + LLaMA 3.3
     </div>
 </div>
+
+<script>
+function startLoading() {
+    const bar = document.getElementById('loading-bar');
+    const fill = document.getElementById('loading-fill');
+    const txt = document.getElementById('loading-text');
+    bar.style.display = 'block';
+    txt.style.display = 'block';
+    let p = 0;
+    const iv = setInterval(() => {
+        p += Math.random() * 12;
+        if (p >= 90) { p = 90; clearInterval(iv); }
+        fill.style.width = p + '%';
+    }, 300);
+}
+function selectOrg(el, name) {
+    document.querySelectorAll('.reg-option').forEach(o => o.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('org-input').value = name;
+}
+</script>
 </body>
 </html>
 """
@@ -617,4 +805,5 @@ def download_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
+
 
