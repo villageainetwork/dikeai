@@ -1,4 +1,4 @@
-# DIKE AI v1.1 - UI Redesign
+# DIKE AI v1.2 - Email capture + Monitor PDF
 from flask import Flask, request, render_template_string, make_response, session, redirect, url_for
 from monitor import analyse_impact, ORG_TYPES
 from reportlab.lib.pagesizes import A4
@@ -11,8 +11,10 @@ import datetime
 import io
 import json
 import os
+import csv
 from dotenv import load_dotenv
 load_dotenv()
+
 app = Flask(__name__)
 app.secret_key = "governance-audit-secret-key-2024"
 
@@ -71,6 +73,27 @@ REGULATIONS = {
     }
 }
 
+# ─── EMAIL STORAGE ────────────────────────────────────────────────────────────
+def save_email(email, source, regulation=""):
+    """Save email to a CSV file."""
+    emails_file = "emails.csv"
+    file_exists = os.path.isfile(emails_file)
+    try:
+        with open(emails_file, "a", newline="") as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                writer.writerow(["timestamp", "email", "source", "regulation"])
+            writer.writerow([
+                datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                email.strip().lower(),
+                source,
+                regulation
+            ])
+    except Exception:
+        pass  # Never crash the app due to email saving
+
+
+# ─── HTML PAGE (AUDIT) ────────────────────────────────────────────────────────
 HTML_PAGE = """
 <!DOCTYPE html>
 <html>
@@ -84,7 +107,6 @@ HTML_PAGE = """
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'DM Sans', sans-serif; background: #f4f4f2; min-height: 100vh; }
 
-        /* Topbar */
         .topbar { background: #ffffff; border-bottom: 0.5px solid #e8e8e5; padding: 0 32px; display: flex; align-items: center; justify-content: space-between; height: 56px; position: sticky; top: 0; z-index: 100; }
         .logo { display: flex; align-items: center; gap: 10px; }
         .logo-mark { width: 28px; height: 28px; background: #185FA5; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -97,10 +119,8 @@ HTML_PAGE = """
         .nav a.inactive { color: #666; border-color: #ddd; }
         .nav a.inactive:hover { background: #f4f4f2; color: #111; }
 
-        /* Body */
         .body { max-width: 760px; margin: 0 auto; padding: 40px 24px 60px; }
 
-        /* Hero */
         .hero { margin-bottom: 32px; }
         .hero-eyebrow { font-family: 'DM Mono', monospace; font-size: 11px; color: #185FA5; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
         .hero-dot { width: 6px; height: 6px; border-radius: 50%; background: #185FA5; display: inline-block; flex-shrink: 0; }
@@ -108,13 +128,10 @@ HTML_PAGE = """
         .hero h1 strong { font-weight: 500; }
         .hero p { font-size: 14px; color: #777; line-height: 1.6; margin: 0; max-width: 480px; }
 
-        /* Card */
         .card { background: #ffffff; border-radius: 12px; border: 0.5px solid #e8e8e5; padding: 28px; margin-bottom: 16px; }
 
-        /* Section label */
         .section-label { font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em; color: #999; margin-bottom: 10px; display: block; }
 
-        /* Regulation grid */
         .reg-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 24px; }
         .reg-option { border: 0.5px solid #e8e8e5; border-radius: 8px; padding: 12px 14px; cursor: pointer; transition: all 0.15s; background: #f9f9f7; }
         .reg-option:hover { border-color: #185FA5; background: #EBF3FB; }
@@ -123,29 +140,24 @@ HTML_PAGE = """
         .reg-name { font-size: 13px; font-weight: 500; color: #111; margin-bottom: 2px; }
         .reg-desc-text { font-size: 11px; color: #999; line-height: 1.4; }
 
-        /* Textarea */
         .textarea-wrap { position: relative; }
         .dike-textarea { width: 100%; min-height: 160px; padding: 14px 16px; border: 0.5px solid #ddd; border-radius: 8px; font-size: 13px; font-family: 'DM Sans', sans-serif; color: #333; background: #ffffff; resize: vertical; line-height: 1.6; outline: none; transition: border-color 0.15s; }
         .dike-textarea:focus { border-color: #185FA5; }
         .dike-textarea::placeholder { color: #bbb; }
         .char-count { position: absolute; bottom: 10px; right: 12px; font-size: 11px; color: #bbb; font-family: 'DM Mono', monospace; pointer-events: none; }
 
-        /* Loading bar */
         .loading-bar { height: 2px; background: #eee; border-radius: 2px; margin-top: 14px; overflow: hidden; display: none; }
         .loading-fill { height: 100%; width: 0%; background: #185FA5; border-radius: 2px; transition: width 0.3s ease; }
         .loading-text { font-size: 12px; color: #999; margin-top: 8px; font-family: 'DM Mono', monospace; display: none; }
 
-        /* Submit button */
         .submit-btn { width: 100%; padding: 13px; background: #185FA5; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; font-family: 'DM Sans', sans-serif; cursor: pointer; margin-top: 20px; transition: background 0.15s; display: flex; align-items: center; justify-content: center; gap: 8px; }
         .submit-btn:hover { background: #0C447C; }
         .submit-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
 
-        /* Divider */
         .divider { display: flex; align-items: center; gap: 12px; margin: 28px 0; }
         .divider-line { flex: 1; height: 0.5px; background: #e8e8e5; }
         .divider-text { font-size: 11px; color: #bbb; font-family: 'DM Mono', monospace; white-space: nowrap; }
 
-        /* Results */
         .results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
         .results-title { font-size: 13px; font-weight: 500; color: #111; }
         .reg-pill { font-family: 'DM Mono', monospace; font-size: 10px; background: #E6F1FB; color: #185FA5; padding: 3px 9px; border-radius: 4px; font-weight: 500; }
@@ -165,12 +177,24 @@ HTML_PAGE = """
         .PARTIAL { background: #FAEEDA; color: #633806; }
         .result-text { font-size: 13px; color: #555; line-height: 1.5; }
 
-        /* Download button */
-        .download-btn { width: 100%; padding: 11px; background: transparent; color: #0F6E56; border: 0.5px solid #1D9E75; border-radius: 8px; font-size: 13px; font-weight: 500; font-family: 'DM Sans', sans-serif; cursor: pointer; margin-top: 16px; transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        /* Email capture box */
+        .email-gate { background: #f0f6ff; border: 0.5px solid #c5d9f0; border-radius: 10px; padding: 20px; margin-top: 20px; }
+        .email-gate-title { font-size: 13px; font-weight: 500; color: #111; margin-bottom: 4px; }
+        .email-gate-sub { font-size: 12px; color: #777; margin-bottom: 14px; line-height: 1.5; }
+        .email-row { display: flex; gap: 8px; }
+        .email-input { flex: 1; padding: 10px 14px; border: 0.5px solid #c5d9f0; border-radius: 7px; font-size: 13px; font-family: 'DM Sans', sans-serif; color: #333; outline: none; background: white; transition: border-color 0.15s; }
+        .email-input:focus { border-color: #185FA5; }
+        .email-input::placeholder { color: #bbb; }
+        .email-btn { padding: 10px 18px; background: #185FA5; color: white; border: none; border-radius: 7px; font-size: 13px; font-weight: 500; font-family: 'DM Sans', sans-serif; cursor: pointer; white-space: nowrap; transition: background 0.15s; display: flex; align-items: center; gap: 6px; }
+        .email-btn:hover { background: #0C447C; }
+        .email-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+        .email-success { font-size: 12px; color: #0F6E56; margin-top: 8px; display: none; font-family: 'DM Mono', monospace; }
+
+        /* Download button - shown after email */
+        .download-btn { width: 100%; padding: 11px; background: transparent; color: #0F6E56; border: 0.5px solid #1D9E75; border-radius: 8px; font-size: 13px; font-weight: 500; font-family: 'DM Sans', sans-serif; cursor: pointer; margin-top: 12px; transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 6px; }
         .download-btn:hover { background: #E1F5EE; }
         .download-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
 
-        /* Footer */
         .footer { text-align: center; font-size: 11px; color: #bbb; margin-top: 32px; padding-top: 20px; border-top: 0.5px solid #e8e8e5; font-family: 'DM Mono', monospace; }
         .footer a { color: #185FA5; text-decoration: none; }
 
@@ -179,6 +203,7 @@ HTML_PAGE = """
             .body { padding: 24px 16px 48px; }
             .reg-grid { grid-template-columns: 1fr; }
             .logo-badge { display: none; }
+            .email-row { flex-direction: column; }
         }
     </style>
 </head>
@@ -194,7 +219,7 @@ HTML_PAGE = """
             </svg>
         </div>
         <span class="logo-text">DIKE AI</span>
-        <span class="logo-badge">v1.0</span>
+        <span class="logo-badge">v1.2</span>
     </div>
     <div class="nav">
         <a href="/" class="active">DIKE Audit</a>
@@ -215,7 +240,7 @@ HTML_PAGE = """
             <div class="reg-grid">
                 {% for reg_name, reg_data in regulations.items() %}
                 <div class="reg-option {% if reg_name == selected_reg %}selected{% endif %}"
-                     onclick="selectReg(this, '{{ reg_name }}', '{{ reg_data.description }}')">
+                     onclick="selectReg(this, '{{ reg_name }}')">
                     <div class="reg-name">{{ reg_name }}</div>
                     <div class="reg-desc-text">{{ reg_data.description }}</div>
                 </div>
@@ -273,29 +298,49 @@ HTML_PAGE = """
             <span class="result-text">{{ item.explanation }}</span>
         </div>
         {% endfor %}
+
+        <!-- Email gate before PDF download -->
+        {% if email_captured %}
         <form method="POST" action="/download-pdf">
             <button type="submit" class="download-btn">
                 <svg viewBox="0 0 16 16" fill="none"><path d="M8 2v8M4 7l4 4 4-4M2 13h12" stroke="#0F6E56" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 Download PDF report
             </button>
         </form>
+        {% else %}
+        <div class="email-gate">
+            <div class="email-gate-title">Download your compliance report</div>
+            <div class="email-gate-sub">Enter your email to get the PDF report. We will also keep you updated on regulatory changes that affect your organisation.</div>
+            <form method="POST" action="/capture-email" id="email-form">
+                <input type="hidden" name="regulation" value="{{ selected_reg }}">
+                <div class="email-row">
+                    <input type="email" name="email" class="email-input" placeholder="your@email.com" required>
+                    <button type="submit" class="email-btn">
+                        <svg viewBox="0 0 16 16" fill="none"><path d="M8 2v8M4 7l4 4 4-4M2 13h12" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        Get PDF
+                    </button>
+                </div>
+            </form>
+            <div class="email-success" id="email-success">Email saved — downloading your report now.</div>
+        </div>
+        {% endif %}
     </div>
     {% endif %}
 
     <div class="footer">
-        Powered by <a href="https://strategicpolicylab.com">Strategic Policy Lab</a> &nbsp;·&nbsp; Built with Groq + LLaMA 3.3
+        Powered by <a href="https://strategicpolicylab.com">Strategic Policy Lab</a> &nbsp;&middot;&nbsp; Built with Groq + LLaMA 3.3
     </div>
 </div>
 
 <script>
-function selectReg(el, name, desc) {
+function selectReg(el, name) {
     document.querySelectorAll('.reg-option').forEach(o => o.classList.remove('selected'));
     el.classList.add('selected');
     document.getElementById('regulation-input').value = name;
 }
 function updateCount() {
     const val = document.getElementById('policy-input').value.trim();
-    const words = val ? val.split(/\s+/).length : 0;
+    const words = val ? val.split(/ +/).length : 0;
     document.getElementById('char-count').textContent = words + ' words';
 }
 function startLoading() {
@@ -311,13 +356,13 @@ function startLoading() {
         fill.style.width = p + '%';
     }, 300);
 }
-// Init word count on load
 document.addEventListener('DOMContentLoaded', updateCount);
 </script>
 </body>
 </html>
 """
 
+# ─── MONITOR PAGE ─────────────────────────────────────────────────────────────
 MONITOR_PAGE = """
 <!DOCTYPE html>
 <html>
@@ -389,6 +434,11 @@ MONITOR_PAGE = """
         .section-heading { font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em; color: #185FA5; margin-bottom: 8px; }
         .section-body { font-size: 13px; color: #555; line-height: 1.7; white-space: pre-wrap; }
 
+        /* Download button - same style as audit */
+        .download-btn { width: 100%; padding: 11px; background: transparent; color: #0F6E56; border: 0.5px solid #1D9E75; border-radius: 8px; font-size: 13px; font-weight: 500; font-family: 'DM Sans', sans-serif; cursor: pointer; margin-top: 20px; transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .download-btn:hover { background: #E1F5EE; }
+        .download-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+
         .footer { text-align: center; font-size: 11px; color: #bbb; margin-top: 32px; padding-top: 20px; border-top: 0.5px solid #e8e8e5; font-family: 'DM Mono', monospace; }
         .footer a { color: #185FA5; text-decoration: none; }
 
@@ -411,7 +461,7 @@ MONITOR_PAGE = """
             </svg>
         </div>
         <span class="logo-text">DIKE AI</span>
-        <span class="logo-badge">v1.0</span>
+        <span class="logo-badge">v1.2</span>
     </div>
     <div class="nav">
         <a href="/" class="inactive">DIKE Audit</a>
@@ -432,7 +482,7 @@ MONITOR_PAGE = """
             <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 24px;">
                 {% for org in org_types %}
                 <div class="reg-option {% if org == selected_org %}selected{% endif %}"
-                     onclick="selectOrg(this, '{{ org }}')" style="cursor:pointer;">
+                     onclick="selectOrg(this, '{{ org }}')">
                     <div class="reg-name">{{ org }}</div>
                 </div>
                 {% endfor %}
@@ -462,7 +512,7 @@ MONITOR_PAGE = """
 
     <div class="card">
         <div class="results-header">
-            <span class="results-title">Impact report — {{ selected_org }}</span>
+            <span class="results-title">Impact report &mdash; {{ selected_org }}</span>
             <span class="impact-badge {{ impact_level }}">{{ impact_level }} IMPACT</span>
         </div>
         {% for section in sections %}
@@ -471,11 +521,19 @@ MONITOR_PAGE = """
             <div class="section-body">{{ section.content }}</div>
         </div>
         {% endfor %}
+
+        <!-- Monitor PDF download button -->
+        <form method="POST" action="/download-monitor-pdf">
+            <button type="submit" class="download-btn">
+                <svg viewBox="0 0 16 16" fill="none"><path d="M8 2v8M4 7l4 4 4-4M2 13h12" stroke="#0F6E56" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Download impact report PDF
+            </button>
+        </form>
     </div>
     {% endif %}
 
     <div class="footer">
-        Powered by <a href="https://strategicpolicylab.com">Strategic Policy Lab</a> &nbsp;·&nbsp; Built with Groq + LLaMA 3.3
+        Powered by <a href="https://strategicpolicylab.com">Strategic Policy Lab</a> &nbsp;&middot;&nbsp; Built with Groq + LLaMA 3.3
     </div>
 </div>
 
@@ -504,6 +562,7 @@ function selectOrg(el, name) {
 """
 
 
+# ─── PARSERS ──────────────────────────────────────────────────────────────────
 def parse_results(ai_response):
     results = []
     lines = ai_response.strip().split("\n")
@@ -547,24 +606,21 @@ def parse_results(ai_response):
 def parse_monitor_results(ai_response):
     sections = []
     impact_level = "MEDIUM"
-
     current_title = ""
     current_content = []
-
-    section_titles = ["SUMMARY", "IMPACT LEVEL", "KEY CHANGES", "WHO IS AFFECTED", "REQUIRED ACTIONS", "DEADLINE", "RISK IF IGNORED"]
+    section_titles = ["SUMMARY", "IMPACT LEVEL", "KEY CHANGES", "WHO IS AFFECTED",
+                      "REQUIRED ACTIONS", "DEADLINE", "RISK IF IGNORED"]
 
     for line in ai_response.split("\n"):
         line = line.strip()
         line = line.lstrip("#").strip()
         if not line:
             continue
-
         matched_title = None
         for title in section_titles:
             if line.upper().startswith(title):
                 matched_title = title
                 break
-
         if matched_title:
             if current_title and current_content:
                 sections.append({"title": current_title, "content": "\n".join(current_content).strip()})
@@ -591,16 +647,42 @@ def parse_monitor_results(ai_response):
     return sections, impact_level
 
 
+# ─── PDF HELPERS ──────────────────────────────────────────────────────────────
+def build_pdf_styles():
+    blue = HexColor("#185FA5")
+    red = HexColor("#9b1c1c")
+    green = HexColor("#03543f")
+    amber = HexColor("#723b13")
+    grey = HexColor("#666666")
+    return {
+        "blue": blue, "red": red, "green": green, "amber": amber, "grey": grey,
+        "light_red": HexColor("#fde8e8"),
+        "light_green": HexColor("#def7ec"),
+        "light_amber": HexColor("#fdf3c8"),
+        "title": ParagraphStyle("title", fontSize=20, textColor=blue, fontName="Helvetica-Bold", spaceAfter=4),
+        "meta": ParagraphStyle("meta", fontSize=11, textColor=grey, spaceAfter=16),
+        "heading": ParagraphStyle("heading", fontSize=13, textColor=blue, fontName="Helvetica-Bold", spaceBefore=16, spaceAfter=8),
+        "body": ParagraphStyle("body", fontSize=11, textColor=HexColor("#444444"), leading=16),
+        "section_title": ParagraphStyle("section_title", fontSize=10, textColor=blue, fontName="Helvetica-Bold", spaceBefore=14, spaceAfter=4),
+        "footer": ParagraphStyle("footer", fontSize=9, textColor=grey, leading=14),
+    }
+
+
+# ─── ROUTES ───────────────────────────────────────────────────────────────────
 @app.route("/", methods=["GET", "POST"])
 def home():
     results = []
     policy = ""
     selected_reg = "DPDP Act 2023"
     fail_count = partial_count = pass_count = 0
+    email_captured = session.get("email_captured", False)
 
     if request.method == "POST":
         policy = request.form.get("policy", "")
         selected_reg = request.form.get("regulation", "DPDP Act 2023")
+        # New audit resets email gate
+        session.pop("email_captured", None)
+        email_captured = False
 
         if policy.strip():
             reg_data = REGULATIONS[selected_reg]
@@ -628,8 +710,7 @@ One line per checklist item. No extra text."""
                 raw_response = response.choices[0].message.content
                 results = parse_results(raw_response)
             except Exception as e:
-                results = [{"status": "FAIL",
-                            "explanation": f"An error occurred: {str(e)}"}]
+                results = [{"status": "FAIL", "explanation": f"An error occurred: {str(e)}"}]
 
             fail_count = sum(1 for r in results if r["status"] == "FAIL")
             partial_count = sum(1 for r in results if r["status"] == "PARTIAL")
@@ -652,8 +733,20 @@ One line per checklist item. No extra text."""
         regulations=REGULATIONS,
         fail_count=fail_count,
         partial_count=partial_count,
-        pass_count=pass_count
+        pass_count=pass_count,
+        email_captured=email_captured
     )
+
+
+@app.route("/capture-email", methods=["POST"])
+def capture_email():
+    """Save email then redirect to PDF download."""
+    email = request.form.get("email", "").strip()
+    regulation = request.form.get("regulation", "")
+    if email:
+        save_email(email, "audit_pdf", regulation)
+        session["email_captured"] = True
+    return redirect(url_for("download_pdf"))
 
 
 @app.route("/monitor", methods=["GET", "POST"])
@@ -674,6 +767,11 @@ def monitor():
             except Exception as e:
                 sections = [{"title": "ERROR", "content": f"An error occurred: {str(e)}"}]
 
+            session["monitor_sections"] = sections
+            session["monitor_org"] = selected_org
+            session["monitor_impact"] = impact_level
+            session["monitor_text"] = regulatory_text
+
     return render_template_string(
         MONITOR_PAGE,
         sections=sections,
@@ -684,7 +782,7 @@ def monitor():
     )
 
 
-@app.route("/download-pdf", methods=["POST"])
+@app.route("/download-pdf", methods=["GET", "POST"])
 def download_pdf():
     results = session.get("results", [])
     regulation = session.get("selected_reg", "")
@@ -693,49 +791,26 @@ def download_pdf():
     pass_count = session.get("pass_count", 0)
     date = datetime.datetime.now().strftime("%d %B %Y")
 
+    s = build_pdf_styles()
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4,
                             rightMargin=20*mm, leftMargin=20*mm,
                             topMargin=20*mm, bottomMargin=20*mm)
-
-    blue = HexColor("#185FA5")
-    red = HexColor("#9b1c1c")
-    green = HexColor("#03543f")
-    amber = HexColor("#723b13")
-    light_red = HexColor("#fde8e8")
-    light_green = HexColor("#def7ec")
-    light_amber = HexColor("#fdf3c8")
-    grey = HexColor("#666666")
-
-    title_style = ParagraphStyle("title", fontSize=20, textColor=blue,
-                                  fontName="Helvetica-Bold", spaceAfter=4)
-    meta_style = ParagraphStyle("meta", fontSize=11, textColor=grey, spaceAfter=16)
-    heading_style = ParagraphStyle("heading", fontSize=13, textColor=blue,
-                                    fontName="Helvetica-Bold", spaceBefore=16, spaceAfter=8)
-    body_style = ParagraphStyle("body", fontSize=11,
-                                 textColor=HexColor("#444444"), leading=16)
-    footer_style = ParagraphStyle("footer", fontSize=9, textColor=grey, leading=14)
-
     story = []
-    story.append(Paragraph("DIKE AI — Governance Audit Report", title_style))
-    story.append(Paragraph(
-        f"Regulation: <b>{regulation}</b> &nbsp;&nbsp; Date: <b>{date}</b>",
-        meta_style))
+    story.append(Paragraph("DIKE AI — Governance Audit Report", s["title"]))
+    story.append(Paragraph(f"Regulation: <b>{regulation}</b> &nbsp;&nbsp; Date: <b>{date}</b>", s["meta"]))
     story.append(Spacer(1, 4*mm))
+    story.append(Paragraph("Compliance summary", s["heading"]))
 
-    story.append(Paragraph("Compliance summary", heading_style))
-    summary_data = [
-        ["Failed", "Partial", "Passed"],
-        [str(fail_count), str(partial_count), str(pass_count)]
-    ]
+    summary_data = [["Failed", "Partial", "Passed"], [str(fail_count), str(partial_count), str(pass_count)]]
     summary_table = Table(summary_data, colWidths=[55*mm, 55*mm, 55*mm])
     summary_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (0, -1), light_red),
-        ("BACKGROUND", (1, 0), (1, -1), light_amber),
-        ("BACKGROUND", (2, 0), (2, -1), light_green),
-        ("TEXTCOLOR", (0, 0), (0, -1), red),
-        ("TEXTCOLOR", (1, 0), (1, -1), amber),
-        ("TEXTCOLOR", (2, 0), (2, -1), green),
+        ("BACKGROUND", (0, 0), (0, -1), s["light_red"]),
+        ("BACKGROUND", (1, 0), (1, -1), s["light_amber"]),
+        ("BACKGROUND", (2, 0), (2, -1), s["light_green"]),
+        ("TEXTCOLOR", (0, 0), (0, -1), s["red"]),
+        ("TEXTCOLOR", (1, 0), (1, -1), s["amber"]),
+        ("TEXTCOLOR", (2, 0), (2, -1), s["green"]),
         ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, 0), 11),
         ("FONTSIZE", (0, 1), (-1, 1), 22),
@@ -748,26 +823,22 @@ def download_pdf():
     ]))
     story.append(summary_table)
     story.append(Spacer(1, 4*mm))
-
-    story.append(Paragraph("Detailed findings", heading_style))
+    story.append(Paragraph("Detailed findings", s["heading"]))
 
     for item in results:
         status = item["status"]
         explanation = item["explanation"]
         if status == "FAIL":
-            bg, tc = light_red, red
+            bg, tc = s["light_red"], s["red"]
         elif status == "PASS":
-            bg, tc = light_green, green
+            bg, tc = s["light_green"], s["green"]
         else:
-            bg, tc = light_amber, amber
+            bg, tc = s["light_amber"], s["amber"]
 
-        safe_explanation = explanation.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
+        safe_exp = explanation.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
         row_data = [[
-            Paragraph(f"<b>{status}</b>",
-                      ParagraphStyle("badge", fontSize=10, textColor=tc,
-                                     fontName="Helvetica-Bold")),
-            Paragraph(safe_explanation, body_style)
+            Paragraph(f"<b>{status}</b>", ParagraphStyle("badge", fontSize=10, textColor=tc, fontName="Helvetica-Bold")),
+            Paragraph(safe_exp, s["body"])
         ]]
         row_table = Table(row_data, colWidths=[22*mm, 143*mm])
         row_table.setStyle(TableStyle([
@@ -787,24 +858,100 @@ def download_pdf():
 
     story.append(Spacer(1, 8*mm))
     story.append(Paragraph(
-        "This report was generated automatically by DIKE AI. "
-        "It is intended as a preliminary assessment only and does not constitute "
-        "legal advice. Consult a qualified legal professional for formal compliance guidance. "
-        "Powered by Strategic Policy Lab — strategicpolicylab.com",
-        footer_style
+        "This report was generated automatically by DIKE AI. It is intended as a preliminary "
+        "assessment only and does not constitute legal advice. Consult a qualified legal professional "
+        "for formal compliance guidance. Powered by Strategic Policy Lab — strategicpolicylab.com",
+        s["footer"]
     ))
 
     doc.build(story)
     buffer.seek(0)
-
     response = make_response(buffer.read())
     response.headers["Content-Type"] = "application/pdf"
     response.headers["Content-Disposition"] = "attachment; filename=dike_ai_compliance_report.pdf"
     return response
 
 
+@app.route("/download-monitor-pdf", methods=["POST"])
+def download_monitor_pdf():
+    """Generate PDF for DIKE Monitor impact report."""
+    sections = session.get("monitor_sections", [])
+    org = session.get("monitor_org", "")
+    impact_level = session.get("monitor_impact", "MEDIUM")
+    date = datetime.datetime.now().strftime("%d %B %Y")
+
+    impact_colors = {
+        "HIGH": (HexColor("#fde8e8"), HexColor("#9b1c1c")),
+        "MEDIUM": (HexColor("#fdf3c8"), HexColor("#723b13")),
+        "LOW": (HexColor("#def7ec"), HexColor("#03543f")),
+    }
+    badge_bg, badge_tc = impact_colors.get(impact_level, impact_colors["MEDIUM"])
+
+    s = build_pdf_styles()
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
+                            rightMargin=20*mm, leftMargin=20*mm,
+                            topMargin=20*mm, bottomMargin=20*mm)
+    story = []
+
+    # Header
+    story.append(Paragraph("DIKE AI — Regulatory Impact Report", s["title"]))
+    story.append(Paragraph(
+        f"Organisation: <b>{org}</b> &nbsp;&nbsp; Date: <b>{date}</b>",
+        s["meta"]
+    ))
+    story.append(Spacer(1, 4*mm))
+
+    # Impact level badge as a small table
+    badge_data = [[f"{impact_level} IMPACT"]]
+    badge_table = Table(badge_data, colWidths=[40*mm])
+    badge_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), badge_bg),
+        ("TEXTCOLOR", (0, 0), (-1, -1), badge_tc),
+        ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 11),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("BOX", (0, 0), (-1, -1), 0.5, HexColor("#eeeeee")),
+    ]))
+    story.append(badge_table)
+    story.append(Spacer(1, 6*mm))
+
+    # Sections
+    for section in sections:
+        title = section.get("title", "")
+        content = section.get("content", "")
+        safe_content = content.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+        story.append(Paragraph(title, s["section_title"]))
+
+        # Render content line by line to preserve bullet-style lists
+        for line in safe_content.split("\n"):
+            line = line.strip()
+            if not line:
+                story.append(Spacer(1, 2*mm))
+                continue
+            story.append(Paragraph(line, s["body"]))
+
+        story.append(Spacer(1, 3*mm))
+
+    story.append(Spacer(1, 8*mm))
+    story.append(Paragraph(
+        "This report was generated automatically by DIKE AI. It is intended as a preliminary "
+        "assessment only and does not constitute legal advice. Consult a qualified legal professional "
+        "for formal compliance guidance. Powered by Strategic Policy Lab — strategicpolicylab.com",
+        s["footer"]
+    ))
+
+    doc.build(story)
+    buffer.seek(0)
+    response = make_response(buffer.read())
+    response.headers["Content-Type"] = "application/pdf"
+    response.headers["Content-Disposition"] = "attachment; filename=dike_ai_impact_report.pdf"
+    return response
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
-
-
