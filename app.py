@@ -913,24 +913,24 @@ def download_pdf():
 
 @app.route("/capture-monitor-email", methods=["POST"])
 def capture_monitor_email():
-    """Save email then redirect to monitor PDF download."""
+    """Save email then generate PDF directly — no redirect needed."""
+    import html as html_module
     email = request.form.get("email", "").strip()
     org = request.form.get("selected_org", "")
+    impact_level = request.form.get("impact_level", "MEDIUM")
+    sections_json = request.form.get("sections_json", "[]")
+
     if email:
         save_email(email, "monitor_pdf", org)
         session["monitor_email_captured"] = True
-        # Store form data in session for PDF route
-        import html as html_module
-        sections_json = request.form.get("sections_json", "[]")
-        try:
-            import json as json_mod
-            sections = json_mod.loads(html_module.unescape(sections_json))
-        except Exception:
-            sections = []
-        session["monitor_sections"] = sections
-        session["monitor_org"] = org
-        session["monitor_impact"] = request.form.get("impact_level", "MEDIUM")
-    return redirect(url_for("download_monitor_pdf_get"))
+
+    try:
+        sections = json.loads(html_module.unescape(sections_json))
+    except Exception:
+        sections = session.get("monitor_sections", [])
+
+    # Generate and return PDF directly without redirecting
+    return _build_monitor_pdf(sections, org, impact_level)
 
 
 def _build_monitor_pdf(sections, org, impact_level):
