@@ -442,10 +442,23 @@ MONITOR_PAGE = """
         .footer { text-align: center; font-size: 11px; color: #bbb; margin-top: 32px; padding-top: 20px; border-top: 0.5px solid #e8e8e5; font-family: 'DM Mono', monospace; }
         .footer a { color: #185FA5; text-decoration: none; }
 
+        /* Email gate - same as audit */
+        .email-gate { background: #f0f6ff; border: 0.5px solid #c5d9f0; border-radius: 10px; padding: 20px; margin-top: 20px; }
+        .email-gate-title { font-size: 13px; font-weight: 500; color: #111; margin-bottom: 4px; }
+        .email-gate-sub { font-size: 12px; color: #777; margin-bottom: 14px; line-height: 1.5; }
+        .email-row { display: flex; gap: 8px; }
+        .email-input { flex: 1; padding: 10px 14px; border: 0.5px solid #c5d9f0; border-radius: 7px; font-size: 13px; font-family: 'DM Sans', sans-serif; color: #333; outline: none; background: white; transition: border-color 0.15s; }
+        .email-input:focus { border-color: #185FA5; }
+        .email-input::placeholder { color: #bbb; }
+        .email-btn { padding: 10px 18px; background: #185FA5; color: white; border: none; border-radius: 7px; font-size: 13px; font-weight: 500; font-family: 'DM Sans', sans-serif; cursor: pointer; white-space: nowrap; transition: background 0.15s; display: flex; align-items: center; gap: 6px; }
+        .email-btn:hover { background: #0C447C; }
+        .email-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+
         @media (max-width: 540px) {
             .topbar { padding: 0 16px; }
             .body { padding: 24px 16px 48px; }
             .logo-badge { display: none; }
+            .email-row { flex-direction: column; }
         }
     </style>
 </head>
@@ -522,13 +535,35 @@ MONITOR_PAGE = """
         </div>
         {% endfor %}
 
-        <!-- Monitor PDF download button -->
+        <!-- Email gate before Monitor PDF download -->
+        {% if monitor_email_captured %}
         <form method="POST" action="/download-monitor-pdf">
+            <input type="hidden" name="selected_org" value="{{ selected_org }}">
+            <input type="hidden" name="impact_level" value="{{ impact_level }}">
+            <input type="hidden" name="sections_json" value="{{ sections | tojson | e }}">
             <button type="submit" class="download-btn">
                 <svg viewBox="0 0 16 16" fill="none"><path d="M8 2v8M4 7l4 4 4-4M2 13h12" stroke="#0F6E56" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 Download impact report PDF
             </button>
         </form>
+        {% else %}
+        <div class="email-gate">
+            <div class="email-gate-title">Download your impact report</div>
+            <div class="email-gate-sub">Enter your email to get the PDF report. We will keep you updated on regulatory changes relevant to your organisation.</div>
+            <form method="POST" action="/capture-monitor-email">
+                <input type="hidden" name="selected_org" value="{{ selected_org }}">
+                <input type="hidden" name="impact_level" value="{{ impact_level }}">
+                <input type="hidden" name="sections_json" value="{{ sections | tojson | e }}">
+                <div class="email-row">
+                    <input type="email" name="email" class="email-input" placeholder="your@email.com" required>
+                    <button type="submit" class="email-btn">
+                        <svg viewBox="0 0 16 16" fill="none"><path d="M8 2v8M4 7l4 4 4-4M2 13h12" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        Get PDF
+                    </button>
+                </div>
+            </form>
+        </div>
+        {% endif %}
     </div>
     {% endif %}
 
@@ -759,6 +794,7 @@ def monitor():
     if request.method == "POST":
         regulatory_text = request.form.get("regulatory_text", "")
         selected_org = request.form.get("org_type", "Indian Startup")
+        session.pop("monitor_email_captured", None)
 
         if regulatory_text.strip():
             try:
@@ -772,13 +808,16 @@ def monitor():
             session["monitor_impact"] = impact_level
             session["monitor_text"] = regulatory_text
 
+    monitor_email_captured = session.get('monitor_email_captured', False)
+
     return render_template_string(
         MONITOR_PAGE,
         sections=sections,
         regulatory_text=regulatory_text,
         selected_org=selected_org,
         org_types=list(ORG_TYPES.keys()),
-        impact_level=impact_level
+        impact_level=impact_level,
+        monitor_email_captured=monitor_email_captured
     )
 
 
@@ -872,12 +911,107 @@ def download_pdf():
     return response
 
 
-@app.route("/download-monitor-pdf", methods=["POST"])
-def download_monitor_pdf():
-    """Generate PDF for DIKE Monitor impact report."""
+@app.route("/capture-monitor-email", methods=["POST"])
+def capture_monitor_email():
+    """Save email then redirect to monitor PDF download."""
+    email = request.form.get("email", "").strip()
+    org = request.form.get("selected_org", "")
+    if email:
+        save_email(email, "monitor_pdf", org)
+        session["monitor_email_captured"] = True
+        # Store form data in session for PDF route
+        import html as html_module
+        sections_json = request.form.get("sections_json", "[]")
+        try:
+            import json as json_mod
+            sections = json_mod.loads(html_module.unescape(sections_json))
+        except Exception:
+            sections = []
+        session["monitor_sections"] = sections
+        session["monitor_org"] = org
+        session["monitor_impact"] = request.form.get("impact_level", "MEDIUM")
+    return redirect(url_for("download_monitor_pdf_get"))
+
+
+def _build_monitor_pdf(sections, org, impact_level):
+    """Shared PDF builder for Monitor reports."""
+    date = datetime.datetime.now().strftime("%d %B %Y")
+    impact_colors = {
+        "HIGH": (HexColor("#fde8e8"), HexColor("#9b1c1c")),
+        "MEDIUM": (HexColor("#fdf3c8"), HexColor("#723b13")),
+        "LOW": (HexColor("#def7ec"), HexColor("#03543f")),
+    }
+    badge_bg, badge_tc = impact_colors.get(impact_level, impact_colors["MEDIUM"])
+    s = build_pdf_styles()
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
+                            rightMargin=20*mm, leftMargin=20*mm,
+                            topMargin=20*mm, bottomMargin=20*mm)
+    story = []
+    story.append(Paragraph("DIKE AI — Regulatory Impact Report", s["title"]))
+    story.append(Paragraph(f"Organisation: <b>{org}</b> &nbsp;&nbsp; Date: <b>{date}</b>", s["meta"]))
+    story.append(Spacer(1, 4*mm))
+    badge_data = [[f"{impact_level} IMPACT"]]
+    badge_table = Table(badge_data, colWidths=[40*mm])
+    badge_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), badge_bg),
+        ("TEXTCOLOR", (0, 0), (-1, -1), badge_tc),
+        ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 11),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("BOX", (0, 0), (-1, -1), 0.5, HexColor("#eeeeee")),
+    ]))
+    story.append(badge_table)
+    story.append(Spacer(1, 6*mm))
+    for section in sections:
+        title = section.get("title", "")
+        content = section.get("content", "")
+        safe_content = content.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        story.append(Paragraph(title, s["section_title"]))
+        for line in safe_content.split("\n"):
+            line = line.strip()
+            if not line:
+                story.append(Spacer(1, 2*mm))
+                continue
+            story.append(Paragraph(line, s["body"]))
+        story.append(Spacer(1, 3*mm))
+    story.append(Spacer(1, 8*mm))
+    story.append(Paragraph(
+        "This report was generated automatically by DIKE AI. It is intended as a preliminary "
+        "assessment only and does not constitute legal advice. Consult a qualified legal professional "
+        "for formal compliance guidance. Powered by Strategic Policy Lab — strategicpolicylab.com",
+        s["footer"]
+    ))
+    doc.build(story)
+    buffer.seek(0)
+    resp = make_response(buffer.read())
+    resp.headers["Content-Type"] = "application/pdf"
+    resp.headers["Content-Disposition"] = "attachment; filename=dike_ai_impact_report.pdf"
+    return resp
+
+
+@app.route("/download-monitor-pdf-get", methods=["GET"])
+def download_monitor_pdf_get():
+    """GET version - reads from session after email capture redirect."""
     sections = session.get("monitor_sections", [])
     org = session.get("monitor_org", "")
     impact_level = session.get("monitor_impact", "MEDIUM")
+    return _build_monitor_pdf(sections, org, impact_level)
+
+
+@app.route("/download-monitor-pdf", methods=["POST"])
+def download_monitor_pdf():
+    """Generate PDF for DIKE Monitor impact report."""
+    import html as html_module
+    sections_json = request.form.get("sections_json", "[]")
+    try:
+        sections = json.loads(html_module.unescape(sections_json))
+    except Exception:
+        sections = session.get("monitor_sections", [])
+    org = request.form.get("selected_org", "") or session.get("monitor_org", "")
+    impact_level = request.form.get("impact_level", "") or session.get("monitor_impact", "MEDIUM")
     date = datetime.datetime.now().strftime("%d %B %Y")
 
     impact_colors = {
@@ -955,3 +1089,4 @@ def download_monitor_pdf():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
+
