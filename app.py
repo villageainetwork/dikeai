@@ -74,23 +74,57 @@ REGULATIONS = {
 }
 
 # ─── EMAIL STORAGE ────────────────────────────────────────────────────────────
-def save_email(email, source, regulation=""):
-    """Save email to a CSV file."""
-    emails_file = "emails.csv"
-    file_exists = os.path.isfile(emails_file)
+def get_sheet():
+    """Get the Google Sheet. Returns None if credentials not available."""
     try:
+        import gspread
+        import json as json_mod
+        from google.oauth2.service_account import Credentials
+        scopes = [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive"
+        ]
+        # Try environment variable first (Railway production)
+        creds_json = os.environ.get("GOOGLE_CREDENTIALS_JSON")
+        if creds_json:
+            creds_dict = json_mod.loads(creds_json)
+            creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+        else:
+            # Fallback to local file (local development)
+            creds_file = os.environ.get("GOOGLE_CREDENTIALS_FILE", "google_credentials.json")
+            creds = Credentials.from_service_account_file(creds_file, scopes=scopes)
+        client = gspread.authorize(creds)
+        sheet_id = os.environ.get("GOOGLE_SHEET_ID", "1dXlj8xmCdk9CM44ctRoCucptFzJlH89oq2tSjw2FFsY")
+        return client.open_by_key(sheet_id).sheet1
+    except Exception:
+        return None
+
+
+def save_email(email, source, regulation=""):
+    """Save email to Google Sheets. Falls back to CSV if Sheets unavailable."""
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    row = [timestamp, email.strip().lower(), source, regulation]
+
+    # Try Google Sheets first
+    sheet = get_sheet()
+    if sheet:
+        try:
+            sheet.append_row(row)
+            return
+        except Exception:
+            pass
+
+    # Fallback to CSV
+    try:
+        emails_file = "emails.csv"
+        file_exists = os.path.isfile(emails_file)
         with open(emails_file, "a", newline="") as f:
             writer = csv.writer(f)
             if not file_exists:
                 writer.writerow(["timestamp", "email", "source", "regulation"])
-            writer.writerow([
-                datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                email.strip().lower(),
-                source,
-                regulation
-            ])
+            writer.writerow(row)
     except Exception:
-        pass  # Never crash the app due to email saving
+        pass
 
 
 # ─── HTML PAGE (AUDIT) ────────────────────────────────────────────────────────
