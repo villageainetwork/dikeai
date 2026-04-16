@@ -887,7 +887,7 @@ PULSE_PAGE = """
             </div>
             <div class="tier-card pro">
                 <span class="tier-badge pro-badge">Pro &mdash; Coming soon</span>
-                <div class="tier-price">&#8377;499 <span>/ month</span></div>
+                <div class="tier-price" style="font-size:14px;color:#999;">Pro announced soon</div>
                 <div class="tier-desc">Full analysis, PDF digest, impact scores, and priority alerts.</div>
                 <ul class="tier-feat">
                     <li><span class="check check-pro"></span>Everything in Free</li>
