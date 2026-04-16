@@ -258,6 +258,7 @@ HTML_PAGE = """
     <div class="nav">
         <a href="/" class="active">DIKE Audit</a>
         <a href="/monitor" class="inactive">DIKE Monitor</a>
+        <a href="/pulse" class="inactive">DIKE Pulse</a>
     </div>
 </div>
 
@@ -513,6 +514,7 @@ MONITOR_PAGE = """
     <div class="nav">
         <a href="/" class="inactive">DIKE Audit</a>
         <a href="/monitor" class="active">DIKE Monitor</a>
+        <a href="/pulse" class="inactive">DIKE Pulse</a>
     </div>
 </div>
 
@@ -632,6 +634,421 @@ function selectOrg(el, name) {
 
 
 # ─── PARSERS ──────────────────────────────────────────────────────────────────
+PULSE_PAGE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DIKE Pulse — Regulatory Intelligence Digest</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'DM Sans', sans-serif; background: #f4f4f2; min-height: 100vh; }
+        .topbar { background: #fff; border-bottom: 0.5px solid #e8e8e5; padding: 0 32px; display: flex; align-items: center; justify-content: space-between; height: 56px; position: sticky; top: 0; z-index: 100; }
+        .logo { display: flex; align-items: center; gap: 10px; }
+        .logo-mark { width: 28px; height: 28px; background: #185FA5; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+        .logo-mark svg { width: 16px; height: 16px; }
+        .logo-text { font-size: 15px; font-weight: 500; color: #111; }
+        .logo-badge { font-family: 'DM Mono', monospace; font-size: 10px; background: #E6F1FB; color: #185FA5; padding: 2px 7px; border-radius: 4px; }
+        .nav { display: flex; gap: 4px; }
+        .nav a { padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; text-decoration: none; border: 0.5px solid transparent; transition: all 0.15s; }
+        .nav a.active { background: #185FA5; color: white; border-color: #185FA5; }
+        .nav a.inactive { color: #666; border-color: #ddd; }
+        .nav a.inactive:hover { background: #f4f4f2; color: #111; }
+        .body { max-width: 760px; margin: 0 auto; padding: 36px 24px 60px; }
+        .hero { margin-bottom: 24px; }
+        .eyebrow { font-family: 'DM Mono', monospace; font-size: 11px; color: #185FA5; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+        .hero-dot { width: 6px; height: 6px; border-radius: 50%; background: #185FA5; display: inline-block; }
+        .hero h1 { font-size: 26px; font-weight: 300; color: #111; letter-spacing: -0.02em; line-height: 1.25; margin: 0 0 8px; }
+        .hero h1 strong { font-weight: 500; }
+        .hero p { font-size: 14px; color: #777; line-height: 1.6; max-width: 520px; }
+        .card { background: #fff; border-radius: 12px; border: 0.5px solid #e8e8e5; padding: 24px; margin-bottom: 16px; }
+        .slabel { font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em; color: #999; margin-bottom: 10px; display: block; }
+
+        /* Stats banner */
+        .stats-banner { background: #185FA5; border-radius: 12px; padding: 18px 24px; margin-bottom: 16px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        .sb-item { text-align: center; }
+        .sb-num { font-size: 28px; font-weight: 300; color: white; letter-spacing: -0.02em; line-height: 1; margin-bottom: 4px; }
+        .sb-lbl { font-size: 10px; color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 0.08em; font-family: 'DM Mono', monospace; }
+
+        /* Penalty box */
+        .penalty-box { background: #1a1a2e; border-radius: 12px; padding: 20px 24px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+        .penalty-left {}
+        .penalty-label { font-family: 'DM Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+        .penalty-amount { font-size: 32px; font-weight: 300; color: #ff6b6b; letter-spacing: -0.03em; line-height: 1; margin-bottom: 4px; }
+        .penalty-period { font-size: 12px; color: rgba(255,255,255,0.5); }
+        .penalty-source { font-size: 10px; color: rgba(255,255,255,0.35); font-family: 'DM Mono', monospace; margin-top: 2px; }
+        .penalty-right { text-align: right; }
+        .penalty-cta { font-size: 12px; color: rgba(255,255,255,0.7); line-height: 1.5; max-width: 200px; }
+        .penalty-cta strong { color: white; }
+
+        /* Deadline tracker */
+        .dl-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .dl-item { border-radius: 8px; padding: 14px; border: 0.5px solid #e8e8e5; }
+        .dl-urgent { background: #fde8e8; border-color: #f09595; }
+        .dl-soon { background: #fdf3c8; border-color: #fac775; }
+        .dl-ok { background: #f9f9f7; }
+        .dl-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+        .dl-reg { font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500; padding: 2px 7px; border-radius: 4px; }
+        .tag-dpdp { background: #E6F1FB; color: #0C447C; }
+        .tag-eu { background: #EAF3DE; color: #3B6D11; }
+        .tag-gcc { background: #FAEEDA; color: #633806; }
+        .tag-gdpr { background: #EEEDFE; color: #3C3489; }
+        .dl-days { font-size: 22px; font-weight: 300; color: #111; letter-spacing: -0.02em; }
+        .dl-days-lbl { font-size: 11px; color: #999; margin-left: 2px; }
+        .dl-name { font-size: 12px; font-weight: 500; color: #111; margin-bottom: 2px; }
+        .dl-date { font-size: 11px; color: #777; }
+        .dl-bar { height: 3px; border-radius: 2px; background: rgba(0,0,0,0.08); margin-top: 8px; overflow: hidden; }
+        .dl-fill-urgent { height: 100%; border-radius: 2px; background: #E24B4A; }
+        .dl-fill-soon { height: 100%; border-radius: 2px; background: #EF9F27; }
+        .dl-fill-ok { height: 100%; border-radius: 2px; background: #185FA5; }
+
+        /* Tier grid */
+        .tier-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .tier-card { border: 0.5px solid #e8e8e5; border-radius: 10px; padding: 18px; background: #f9f9f7; }
+        .tier-card.pro { border: 2px solid #185FA5; background: #fff; }
+        .tier-badge { font-size: 10px; font-weight: 500; padding: 2px 8px; border-radius: 4px; display: inline-block; margin-bottom: 10px; font-family: 'DM Mono', monospace; }
+        .free-badge { background: #f4f4f2; color: #999; border: 0.5px solid #ddd; }
+        .pro-badge { background: #185FA5; color: white; }
+        .tier-price { font-size: 24px; font-weight: 300; color: #111; letter-spacing: -0.02em; margin-bottom: 2px; }
+        .tier-price span { font-size: 12px; color: #999; }
+        .tier-desc { font-size: 12px; color: #777; margin-bottom: 12px; line-height: 1.5; }
+        .tier-feat { list-style: none; }
+        .tier-feat li { font-size: 12px; color: #555; padding: 3px 0; display: flex; align-items: flex-start; gap: 8px; line-height: 1.4; }
+        .check { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center; }
+        .check-free { background: #ddd; }
+        .check-pro { background: #185FA5; }
+        .tier-btn { width: 100%; padding: 10px; border-radius: 7px; font-size: 13px; font-weight: 500; cursor: pointer; margin-top: 14px; font-family: 'DM Sans', sans-serif; border: 0.5px solid #ddd; background: transparent; color: #666; }
+        .pro-btn { background: #185FA5; color: white; border-color: #185FA5; }
+
+        /* Subscribe form */
+        .org-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+        .opt { border: 0.5px solid #e8e8e5; border-radius: 7px; padding: 8px 10px; cursor: pointer; background: #f9f9f7; font-size: 12px; color: #555; text-align: center; transition: all 0.15s; }
+        .opt.sel { border-color: #185FA5; background: #E6F1FB; color: #185FA5; font-weight: 500; }
+        .opt:hover { border-color: #185FA5; }
+        .jur-row { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+        .jur-opt { border: 0.5px solid #e8e8e5; border-radius: 20px; padding: 5px 12px; cursor: pointer; background: #f9f9f7; font-size: 11px; color: #555; font-family: 'DM Mono', monospace; transition: all 0.15s; }
+        .jur-opt.sel { border-color: #185FA5; background: #E6F1FB; color: #185FA5; }
+        .freq-row { display: flex; gap: 8px; margin-bottom: 16px; }
+        .freq-opt { flex: 1; border: 0.5px solid #e8e8e5; border-radius: 7px; padding: 8px; text-align: center; cursor: pointer; background: #f9f9f7; font-size: 12px; color: #555; transition: all 0.15s; }
+        .freq-opt.sel { border-color: #185FA5; background: #E6F1FB; color: #185FA5; font-weight: 500; }
+        .email-row { display: flex; gap: 8px; }
+        .email-row input { flex: 1; padding: 10px 14px; border: 0.5px solid #ddd; border-radius: 7px; font-size: 13px; font-family: 'DM Sans', sans-serif; color: #333; background: #fff; outline: none; }
+        .email-row input:focus { border-color: #185FA5; }
+        .sub-btn { padding: 10px 20px; background: #185FA5; color: white; border: none; border-radius: 7px; font-size: 13px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; white-space: nowrap; }
+        .sub-btn:hover { background: #0C447C; }
+        .success-msg { background: #E1F5EE; border: 0.5px solid #1D9E75; border-radius: 8px; padding: 14px; font-size: 13px; color: #085041; display: none; margin-top: 12px; }
+
+        /* Divider */
+        .divider { display: flex; align-items: center; gap: 12px; margin: 20px 0; }
+        .div-line { flex: 1; height: 0.5px; background: #e8e8e5; }
+        .div-text { font-family: 'DM Mono', monospace; font-size: 11px; color: #bbb; white-space: nowrap; }
+
+        /* Digest */
+        .digest-card { background: #fff; border-radius: 10px; border: 0.5px solid #e8e8e5; padding: 20px; margin-bottom: 12px; }
+        .dh { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+        .dh-title { font-size: 13px; font-weight: 500; color: #111; }
+        .dh-meta { font-size: 11px; color: #999; font-family: 'DM Mono', monospace; }
+        .d-item { display: flex; gap: 12px; padding: 12px 0; border-bottom: 0.5px solid #f0f0ee; position: relative; }
+        .d-item:last-child { border-bottom: none; padding-bottom: 0; }
+        .d-content { flex: 1; }
+        .d-headline { font-size: 13px; font-weight: 500; color: #111; margin-bottom: 4px; line-height: 1.4; }
+        .d-summary { font-size: 12px; color: #666; line-height: 1.5; margin-bottom: 8px; }
+        .d-bottom { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .impact-pill { font-family: 'DM Mono', monospace; font-size: 10px; padding: 2px 7px; border-radius: 4px; font-weight: 500; }
+        .HIGH { background: #FCEBEB; color: #791F1F; }
+        .MEDIUM { background: #FAEEDA; color: #633806; }
+        .LOW { background: #E1F5EE; color: #085041; }
+        .score-pill { font-family: 'DM Mono', monospace; font-size: 10px; padding: 2px 7px; border-radius: 4px; background: #f4f4f2; color: #666; border: 0.5px solid #e8e8e5; }
+        .dl-pill { font-family: 'DM Mono', monospace; font-size: 10px; padding: 2px 7px; border-radius: 4px; background: #FCEBEB; color: #791F1F; }
+        .pro-blur-wrap { position: relative; }
+        .pro-blur-content { filter: blur(4px); pointer-events: none; user-select: none; }
+        .pro-lock-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+        .pro-lock-btn { font-size: 12px; color: #185FA5; font-weight: 500; background: #E6F1FB; padding: 6px 16px; border-radius: 20px; border: 0.5px solid #185FA5; cursor: pointer; font-family: 'DM Mono', monospace; }
+
+        /* Calendar */
+        .cal-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .cal-item { border: 0.5px solid #e8e8e5; border-radius: 8px; padding: 14px; background: #f9f9f7; }
+        .cal-month { font-family: 'DM Mono', monospace; font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
+        .cal-event { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 8px; }
+        .cal-event:last-child { margin-bottom: 0; }
+        .cal-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+        .cal-text { font-size: 12px; color: #444; line-height: 1.4; }
+        .cal-date { font-size: 10px; color: #999; font-family: 'DM Mono', monospace; margin-top: 1px; }
+
+        .footer { text-align: center; font-size: 11px; color: #bbb; margin-top: 28px; padding-top: 16px; border-top: 0.5px solid #e8e8e5; font-family: 'DM Mono', monospace; }
+        .footer a { color: #185FA5; text-decoration: none; }
+
+        @media (max-width: 560px) {
+            .stats-banner { grid-template-columns: repeat(2, 1fr); }
+            .dl-grid, .tier-grid, .org-grid, .cal-grid { grid-template-columns: 1fr; }
+            .topbar { padding: 0 16px; }
+            .body { padding: 24px 16px 48px; }
+            .logo-badge { display: none; }
+            .penalty-box { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+<div class="topbar">
+    <div class="logo">
+        <div class="logo-mark">
+            <svg viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="12" rx="1" fill="white" opacity="0.9"/><rect x="9" y="2" width="5" height="7" rx="1" fill="white" opacity="0.6"/><rect x="9" y="11" width="5" height="3" rx="1" fill="white" opacity="0.6"/></svg>
+        </div>
+        <span class="logo-text">DIKE AI</span>
+        <span class="logo-badge">v1.3</span>
+    </div>
+    <div class="nav">
+        <a href="/" class="inactive">DIKE Audit</a>
+        <a href="/monitor" class="inactive">DIKE Monitor</a>
+        <a href="/pulse" class="active">DIKE Pulse</a>
+    </div>
+</div>
+
+<div class="body">
+    <div class="hero">
+        <div class="eyebrow"><span class="hero-dot"></span> Regulatory Intelligence Digest</div>
+        <h1>Never miss a regulation<br><strong>that affects your organisation</strong></h1>
+        <p>Weekly personalised digest of regulatory developments across India, EU, and GCC &mdash; with impact scores, compliance deadlines, and penalty data.</p>
+    </div>
+
+    <!-- Stats banner -->
+    <div class="stats-banner">
+        <div class="sb-item">
+            <div class="sb-num">{{ digest.total_developments }}</div>
+            <div class="sb-lbl">This week</div>
+        </div>
+        <div class="sb-item">
+            <div class="sb-num">{{ digest.jurisdictions }}</div>
+            <div class="sb-lbl">Jurisdictions</div>
+        </div>
+        <div class="sb-item">
+            <div class="sb-num">{{ deadlines[0].days }}</div>
+            <div class="sb-lbl">Days to DPDP</div>
+        </div>
+        <div class="sb-item">
+            <div class="sb-num">{{ deadlines[1].days }}</div>
+            <div class="sb-lbl">Days to EU AI Act</div>
+        </div>
+    </div>
+
+    <!-- Penalty box -->
+    <div class="penalty-box">
+        <div class="penalty-left">
+            <div class="penalty-label">Global data protection fines</div>
+            <div class="penalty-amount">${{ "{:,.0f}".format(digest.penalty_total_usd / 1000000) }}M</div>
+            <div class="penalty-period">{{ digest.penalty_period }} &mdash; publicly reported enforcement actions</div>
+            <div class="penalty-source">Source: {{ digest.penalty_source }}</div>
+        </div>
+        <div class="penalty-right">
+            <div class="penalty-cta">Non-compliance is no longer a theoretical risk.<br><strong>Is your policy ready?</strong></div>
+        </div>
+    </div>
+
+    <!-- Deadline tracker -->
+    <div class="card">
+        <span class="slabel">Compliance deadline tracker</span>
+        <div class="dl-grid">
+            {% for dl in deadlines %}
+            <div class="dl-item dl-{{ dl.urgency }}">
+                <div class="dl-top">
+                    <span class="dl-reg tag-{{ dl.tag }}">{{ dl.regulation }}</span>
+                    <div><span class="dl-days">{{ dl.days }}<span class="dl-days-lbl"> days</span></span></div>
+                </div>
+                <div class="dl-name">{{ dl.name }}</div>
+                <div class="dl-date">{{ dl.date_str }} &middot; {{ dl.action }}</div>
+                <div class="dl-bar">
+                    <div class="dl-fill-{{ dl.urgency }}" style="width: {{ dl.progress }}%"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Pricing tiers -->
+    <div class="card">
+        <span class="slabel">Choose your plan</span>
+        <div class="tier-grid">
+            <div class="tier-card">
+                <span class="tier-badge free-badge">Free</span>
+                <div class="tier-price">&#8377;0 <span>/ month</span></div>
+                <div class="tier-desc">Weekly digest with headlines, impact levels, and deadline tracker.</div>
+                <ul class="tier-feat">
+                    <li><span class="check check-free"></span>5 regulatory headlines per week</li>
+                    <li><span class="check check-free"></span>HIGH / MEDIUM / LOW impact rating</li>
+                    <li><span class="check check-free"></span>Jurisdiction filter</li>
+                    <li><span class="check check-free"></span>Organisation type personalisation</li>
+                    <li><span class="check check-free"></span>Compliance deadline tracker</li>
+                    <li><span class="check check-free"></span>Global penalty tracker</li>
+                </ul>
+                <button class="tier-btn" onclick="document.getElementById('subscribe-form').scrollIntoView({behavior:'smooth'})">Subscribe free</button>
+            </div>
+            <div class="tier-card pro">
+                <span class="tier-badge pro-badge">Pro &mdash; Coming soon</span>
+                <div class="tier-price">&#8377;499 <span>/ month</span></div>
+                <div class="tier-desc">Full analysis, PDF digest, impact scores, and priority alerts.</div>
+                <ul class="tier-feat">
+                    <li><span class="check check-pro"></span>Everything in Free</li>
+                    <li><span class="check check-pro"></span>Full 7-section impact analysis</li>
+                    <li><span class="check check-pro"></span>Numerical impact score (1&ndash;10)</li>
+                    <li><span class="check check-pro"></span>Required actions with deadlines</li>
+                    <li><span class="check check-pro"></span>Downloadable PDF digest every Monday</li>
+                    <li><span class="check check-pro"></span>Priority email alerts</li>
+                    <li><span class="check check-pro"></span>Regulatory calendar (90-day view)</li>
+                </ul>
+                <button class="tier-btn pro-btn" onclick="document.getElementById('subscribe-form').scrollIntoView({behavior:'smooth'})">Join Pro waitlist</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Subscribe form -->
+    <div class="card" id="subscribe-form">
+        <span class="slabel">Subscribe to DIKE Pulse</span>
+
+        {% if subscribed %}
+        <div style="background:#E1F5EE;border:0.5px solid #1D9E75;border-radius:8px;padding:16px;font-size:13px;color:#085041;">
+            You are subscribed to DIKE Pulse. Your first digest will arrive next Monday morning.
+        </div>
+        {% else %}
+        <form method="POST" action="/pulse" id="pulse-form">
+            <span class="slabel">Organisation type</span>
+            <div class="org-grid">
+                {% set orgs = ["Indian Startup", "NGO / Non-profit", "MNC / Enterprise", "Government Body", "Healthcare Org", "Legal / Consulting"] %}
+                {% for org in orgs %}
+                <div class="opt {% if org == selected_org %}sel{% endif %}"
+                     onclick="selectOpt(this, 'org-input', '{{ org }}')">{{ org }}</div>
+                {% endfor %}
+            </div>
+            <input type="hidden" name="org_type" id="org-input" value="{{ selected_org }}">
+
+            <span class="slabel">Jurisdictions to track</span>
+            <div class="jur-row">
+                {% set jurs = ["India (DPDP)", "EU (GDPR + AI Act)", "GCC (UAE PDPL)", "Global"] %}
+                {% for j in jurs %}
+                <div class="jur-opt {% if j in selected_jurs %}sel{% endif %}"
+                     onclick="toggleJur(this, '{{ j }}')">{{ j }}</div>
+                {% endfor %}
+            </div>
+            <input type="hidden" name="jurisdictions" id="jur-input" value="{{ selected_jurs | join(',') }}">
+
+            <span class="slabel">Frequency</span>
+            <div class="freq-row">
+                {% for f in ["Weekly", "Fortnightly", "Monthly"] %}
+                <div class="freq-opt {% if f == selected_freq %}sel{% endif %}"
+                     onclick="selectOpt(this, 'freq-input', '{{ f }}')">{{ f }}</div>
+                {% endfor %}
+            </div>
+            <input type="hidden" name="frequency" id="freq-input" value="{{ selected_freq }}">
+
+            <span class="slabel">Your email</span>
+            <div class="email-row">
+                <input type="email" name="email" placeholder="your@email.com" required>
+                <button type="submit" class="sub-btn">Subscribe</button>
+            </div>
+            <p style="font-size:11px;color:#bbb;margin-top:8px;">Free to start. Upgrade to Pro anytime. No spam.</p>
+        </form>
+        {% endif %}
+    </div>
+
+    <!-- Latest digest -->
+    <div class="divider">
+        <div class="div-line"></div>
+        <div class="div-text">latest digest &mdash; week of {{ digest.week_of }}</div>
+        <div class="div-line"></div>
+    </div>
+
+    <div class="digest-card">
+        <div class="dh">
+            <span class="dh-title">This week in governance</span>
+            <span class="dh-meta">{{ digest.total_developments }} developments &middot; {{ digest.action_required }} require action</span>
+        </div>
+
+        {% for item in digest.items %}
+        {% if item.pro_only %}
+        <div class="d-item pro-blur-wrap">
+            <div class="pro-blur-content" style="display:flex;gap:12px;width:100%;">
+                <span class="dl-reg tag-{{ item.tag }}">{{ item.regulation }}</span>
+                <div class="d-content">
+                    <div class="d-headline">{{ item.headline }}</div>
+                    <div class="d-summary">{{ item.summary }}</div>
+                    <div class="d-bottom">
+                        <span class="impact-pill {{ item.impact }}">{{ item.impact }}</span>
+                        <span class="score-pill">Score: {{ item.score }} / 10</span>
+                    </div>
+                </div>
+            </div>
+            <div class="pro-lock-overlay">
+                <span class="pro-lock-btn">Pro &mdash; full analysis</span>
+            </div>
+        </div>
+        {% else %}
+        <div class="d-item">
+            <span class="dl-reg tag-{{ item.tag }}">{{ item.regulation }}</span>
+            <div class="d-content">
+                <div class="d-headline">{{ item.headline }}</div>
+                <div class="d-summary">{{ item.summary }}</div>
+                <div class="d-bottom">
+                    <span class="impact-pill {{ item.impact }}">{{ item.impact }}</span>
+                    <span class="score-pill">Score: {{ item.score }} / 10</span>
+                    {% if item.deadline %}<span class="dl-pill">Deadline: {{ item.deadline }}</span>{% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+    </div>
+
+    <!-- Regulatory calendar -->
+    <div class="card">
+        <span class="slabel">Regulatory calendar &mdash; next 90 days</span>
+        <div class="cal-grid">
+            {% for month in calendar %}
+            <div class="cal-item">
+                <div class="cal-month">{{ month.month }}</div>
+                {% for ev in month.events %}
+                <div class="cal-event">
+                    <div class="cal-dot" style="background:{{ ev.color }};"></div>
+                    <div>
+                        <div class="cal-text">{{ ev.name }}</div>
+                        <div class="cal-date">{{ ev.date }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="footer">
+        Powered by <a href="https://strategicpolicylab.com">Strategic Policy Lab</a> &nbsp;&middot;&nbsp; Built with Groq + LLaMA 3.3
+    </div>
+</div>
+
+<script>
+function selectOpt(el, inputId, val) {
+    el.closest('.org-grid, .freq-row') && el.closest('.org-grid, .freq-row').querySelectorAll('.opt,.freq-opt').forEach(o => o.classList.remove('sel'));
+    el.classList.add('sel');
+    document.getElementById(inputId).value = val;
+}
+var selectedJurs = {{ selected_jurs | tojson }};
+function toggleJur(el, val) {
+    if (selectedJurs.includes(val)) {
+        selectedJurs = selectedJurs.filter(j => j !== val);
+        el.classList.remove('sel');
+    } else {
+        selectedJurs.push(val);
+        el.classList.add('sel');
+    }
+    document.getElementById('jur-input').value = selectedJurs.join(',');
+}
+</script>
+</body>
+</html>
+"""
+
+
 def parse_results(ai_response):
     results = []
     lines = ai_response.strip().split("\n")
@@ -1118,6 +1535,40 @@ def download_monitor_pdf():
     response.headers["Content-Type"] = "application/pdf"
     response.headers["Content-Disposition"] = "attachment; filename=dike_ai_impact_report.pdf"
     return response
+
+
+
+@app.route("/pulse", methods=["GET", "POST"])
+def pulse():
+    from pulse import save_subscriber, get_deadlines, get_latest_digest, get_calendar
+    subscribed = False
+    selected_org = "Indian Startup"
+    selected_freq = "Weekly"
+    selected_jurs = ["India (DPDP)", "EU (GDPR + AI Act)", "GCC (UAE PDPL)"]
+
+    if request.method == "POST":
+        email = request.form.get("email", "").strip()
+        org_type = request.form.get("org_type", "Indian Startup")
+        frequency = request.form.get("frequency", "Weekly")
+        jurisdictions = request.form.get("jurisdictions", "India (DPDP)")
+
+        if email:
+            save_subscriber(email, org_type, frequency, jurisdictions)
+            subscribed = True
+            selected_org = org_type
+            selected_freq = frequency
+            selected_jurs = [j.strip() for j in jurisdictions.split(",") if j.strip()]
+
+    return render_template_string(
+        PULSE_PAGE,
+        digest=get_latest_digest(),
+        deadlines=get_deadlines(),
+        calendar=get_calendar(),
+        subscribed=subscribed,
+        selected_org=selected_org,
+        selected_freq=selected_freq,
+        selected_jurs=selected_jurs
+    )
 
 
 if __name__ == "__main__":
