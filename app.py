@@ -256,9 +256,9 @@ HTML_PAGE = """
         <span class="logo-badge">v1.2</span>
     </div>
     <div class="nav">
-        <a href="/" class="active">DIKE Audit</a>
+        <a href="/audit" class="active">DIKE Audit</a>
         <a href="/monitor" class="inactive">DIKE Monitor</a>
-        <a href="/pulse" class="inactive">DIKE Pulse</a>
+        <a href="/" class="inactive">DIKE Pulse</a>
     </div>
 </div>
 
@@ -270,7 +270,7 @@ HTML_PAGE = """
     </div>
 
     <div class="card">
-        <form method="POST" action="/" id="audit-form">
+        <form method="POST" action="/audit" id="audit-form">
             <span class="section-label">Select regulation</span>
             <div class="reg-grid">
                 {% for reg_name, reg_data in regulations.items() %}
@@ -512,9 +512,9 @@ MONITOR_PAGE = """
         <span class="logo-badge">v1.2</span>
     </div>
     <div class="nav">
-        <a href="/" class="inactive">DIKE Audit</a>
+        <a href="/audit" class="inactive">DIKE Audit</a>
         <a href="/monitor" class="active">DIKE Monitor</a>
-        <a href="/pulse" class="inactive">DIKE Pulse</a>
+        <a href="/" class="inactive">DIKE Pulse</a>
     </div>
 </div>
 
@@ -801,9 +801,9 @@ PULSE_PAGE = """
         <span class="logo-badge">v1.3</span>
     </div>
     <div class="nav">
-        <a href="/" class="inactive">DIKE Audit</a>
+        <a href="/audit" class="inactive">DIKE Audit</a>
         <a href="/monitor" class="inactive">DIKE Monitor</a>
-        <a href="/pulse" class="active">DIKE Pulse</a>
+        <a href="/" class="active">DIKE Pulse</a>
     </div>
 </div>
 
@@ -1155,7 +1155,7 @@ def build_pdf_styles():
 
 
 # ─── ROUTES ───────────────────────────────────────────────────────────────────
-@app.route("/", methods=["GET", "POST"])
+@app.route("/audit", methods=["GET", "POST"])
 def home():
     results = []
     policy = ""
@@ -1538,6 +1538,7 @@ def download_monitor_pdf():
 
 
 
+@app.route("/", methods=["GET", "POST"])
 @app.route("/pulse", methods=["GET", "POST"])
 def pulse():
     from pulse import save_subscriber, get_deadlines, get_latest_digest, get_calendar
@@ -1574,6 +1575,27 @@ def pulse():
         selected_jurs=list(selected_jurs)
     )
 
+
+
+@app.route("/admin/update-digest", methods=["GET", "POST"])
+def update_digest():
+    """Manually trigger digest generation. Protected by simple token."""
+    token = request.args.get("token") or request.form.get("token")
+    admin_token = os.environ.get("ADMIN_TOKEN", "dike-admin-2026")
+
+    if token != admin_token:
+        return "Unauthorized", 401
+
+    try:
+        from digest_generator import generate_weekly_digest, save_digest
+        digest = generate_weekly_digest()
+        if digest:
+            save_digest(digest)
+            return f"Digest updated: {digest['total_developments']} developments, penalty ${digest['penalty_total_usd']:,}", 200
+        else:
+            return "No RSS items fetched — digest unchanged", 200
+    except Exception as e:
+        return f"Error: {str(e)}", 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
