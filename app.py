@@ -965,7 +965,7 @@ PULSE_PAGE = """
             <span class="dh-meta">{{ digest.total_developments }} developments &middot; {{ digest.action_required }} require action</span>
         </div>
 
-        {% for item in digest.items %}
+        {% for item in digest.developments %}
         {% if item.pro_only %}
         <div class="d-item pro-blur-wrap">
             <div class="pro-blur-content" style="display:flex;gap:12px;width:100%;">
@@ -1004,7 +1004,7 @@ PULSE_PAGE = """
     <div class="card">
         <span class="slabel">Regulatory calendar &mdash; next 90 days</span>
         <div class="cal-grid">
-            {% for month in calendar %}
+            {% for month in cal %}
             <div class="cal-item">
                 <div class="cal-month">{{ month.month }}</div>
                 {% for ev in month.events %}
@@ -1559,19 +1559,22 @@ def pulse():
             selected_freq = frequency
             selected_jurs = [j.strip() for j in jurisdictions.split(",") if j.strip()]
 
+    digest = get_latest_digest()
+    deadlines = get_deadlines()
+    calendar_data = get_calendar()
+
     return render_template_string(
         PULSE_PAGE,
-        digest=get_latest_digest(),
-        deadlines=get_deadlines(),
-        calendar=get_calendar(),
+        digest=digest,
+        deadlines=deadlines,
+        cal=calendar_data,
         subscribed=subscribed,
         selected_org=selected_org,
         selected_freq=selected_freq,
-        selected_jurs=selected_jurs
+        selected_jurs=list(selected_jurs)
     )
 
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
-
