@@ -1597,6 +1597,581 @@ def update_digest():
     except Exception as e:
         return f"Error: {str(e)}", 500
 
+
+DPDP_PAGE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DIKE — DPDP Guided Audit</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'DM Sans', sans-serif; background: #f4f4f2; min-height: 100vh; }
+        .topbar { background: #fff; border-bottom: 0.5px solid #e8e8e5; padding: 0 32px; display: flex; align-items: center; justify-content: space-between; height: 56px; position: sticky; top: 0; z-index: 100; }
+        .logo { display: flex; align-items: center; gap: 10px; }
+        .logo-mark { width: 28px; height: 28px; background: #185FA5; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+        .logo-mark svg { width: 16px; height: 16px; }
+        .logo-text { font-size: 15px; font-weight: 500; color: #111; }
+        .logo-badge { font-family: 'DM Mono', monospace; font-size: 10px; background: #E6F1FB; color: #185FA5; padding: 2px 7px; border-radius: 4px; }
+        .nav { display: flex; gap: 4px; }
+        .nav a { padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; text-decoration: none; border: 0.5px solid transparent; transition: all 0.15s; }
+        .nav a.active { background: #185FA5; color: white; border-color: #185FA5; }
+        .nav a.inactive { color: #666; border-color: #ddd; }
+        .nav a.inactive:hover { background: #f4f4f2; color: #111; }
+        .body { max-width: 680px; margin: 0 auto; padding: 40px 24px 60px; }
+        .hero { margin-bottom: 32px; }
+        .eyebrow { font-family: 'DM Mono', monospace; font-size: 11px; color: #185FA5; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+        .hero-dot { width: 6px; height: 6px; border-radius: 50%; background: #185FA5; display: inline-block; }
+        .hero h1 { font-size: 26px; font-weight: 300; color: #111; letter-spacing: -0.02em; line-height: 1.25; margin: 0 0 8px; }
+        .hero h1 strong { font-weight: 500; }
+        .hero p { font-size: 14px; color: #777; line-height: 1.6; }
+
+        /* Progress bar */
+        .progress-wrap { margin-bottom: 32px; }
+        .progress-steps { display: flex; gap: 8px; margin-bottom: 8px; }
+        .ps { flex: 1; height: 3px; border-radius: 2px; background: #e8e8e5; transition: background 0.3s; }
+        .ps.done { background: #185FA5; }
+        .ps.active { background: #185FA5; opacity: 0.5; }
+        .progress-label { font-family: 'DM Mono', monospace; font-size: 11px; color: #999; }
+
+        /* Steps */
+        .step { display: none; }
+        .step.active { display: block; }
+        .card { background: #fff; border-radius: 12px; border: 0.5px solid #e8e8e5; padding: 28px; margin-bottom: 16px; }
+        .step-num { font-family: 'DM Mono', monospace; font-size: 11px; color: #185FA5; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.08em; }
+        .step-title { font-size: 20px; font-weight: 400; color: #111; margin-bottom: 6px; letter-spacing: -0.01em; }
+        .step-sub { font-size: 13px; color: #999; margin-bottom: 20px; }
+
+        /* Options */
+        .options { display: flex; flex-direction: column; gap: 8px; }
+        .opt-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 0.5px solid #e8e8e5; border-radius: 8px; cursor: pointer; background: #fafafa; transition: all 0.15s; }
+        .opt-item:hover { border-color: #185FA5; background: #f0f7ff; }
+        .opt-item.selected { border-color: #185FA5; background: #E6F1FB; }
+        .opt-check { width: 18px; height: 18px; border-radius: 4px; border: 1.5px solid #ddd; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+        .opt-item.selected .opt-check { background: #185FA5; border-color: #185FA5; }
+        .opt-item.selected .opt-check::after { content: ""; width: 10px; height: 6px; border-left: 2px solid white; border-bottom: 2px solid white; transform: rotate(-45deg) translateY(-1px); display: block; }
+        .single-item .opt-check { border-radius: 50%; }
+        .opt-label { font-size: 14px; color: #333; }
+
+        /* Org info */
+        .org-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+        .field-wrap label { display: block; font-family: 'DM Mono', monospace; font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+        .field-wrap input { width: 100%; padding: 10px 14px; border: 0.5px solid #ddd; border-radius: 7px; font-size: 13px; font-family: 'DM Sans', sans-serif; color: #333; background: #fff; outline: none; }
+        .field-wrap input:focus { border-color: #185FA5; }
+
+        /* Nav buttons */
+        .btn-row { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; }
+        .btn-back { padding: 10px 20px; border: 0.5px solid #ddd; border-radius: 7px; font-size: 13px; font-weight: 500; cursor: pointer; background: transparent; color: #666; font-family: 'DM Sans', sans-serif; }
+        .btn-next { padding: 10px 24px; background: #185FA5; color: white; border: none; border-radius: 7px; font-size: 13px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+        .btn-next:hover { background: #0C447C; }
+        .btn-next:disabled { background: #ccc; cursor: not-allowed; }
+
+        /* Loading */
+        .loading-wrap { display: none; text-align: center; padding: 48px 0; }
+        .loading-spinner { width: 32px; height: 32px; border: 2px solid #e8e8e5; border-top-color: #185FA5; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { font-size: 14px; color: #777; }
+
+        /* Results */
+        .results-wrap { display: none; }
+        .score-hero { background: #185FA5; border-radius: 12px; padding: 28px; text-align: center; margin-bottom: 16px; color: white; }
+        .score-num { font-size: 64px; font-weight: 300; letter-spacing: -0.04em; line-height: 1; }
+        .score-label { font-size: 13px; opacity: 0.8; margin-top: 4px; }
+        .score-risk { display: inline-block; font-size: 11px; padding: 3px 10px; border-radius: 20px; margin-top: 10px; font-family: 'DM Mono', monospace; font-weight: 500; }
+        .risk-HIGH { background: rgba(255,100,100,0.25); color: #ffcccc; }
+        .risk-MEDIUM { background: rgba(255,200,100,0.25); color: #ffe0aa; }
+        .risk-LOW { background: rgba(100,255,200,0.25); color: #aaffdd; }
+        .summary-card { background: #fff; border-radius: 12px; border: 0.5px solid #e8e8e5; padding: 20px; margin-bottom: 12px; }
+        .slabel { font-family: 'DM Mono', monospace; font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px; display: block; }
+        .summary-text { font-size: 14px; color: #444; line-height: 1.7; }
+        .score-bars { display: flex; flex-direction: column; gap: 10px; }
+        .score-row { display: flex; align-items: center; gap: 10px; }
+        .score-cat { font-size: 12px; color: #555; width: 180px; flex-shrink: 0; }
+        .score-bar-wrap { flex: 1; height: 6px; background: #f0f0ee; border-radius: 3px; overflow: hidden; }
+        .score-bar-fill { height: 100%; border-radius: 3px; transition: width 0.8s ease; }
+        .score-val { font-family: 'DM Mono', monospace; font-size: 11px; color: #999; width: 40px; text-align: right; }
+        .finding-item { padding: 12px 0; border-bottom: 0.5px solid #f0f0ee; }
+        .finding-item:last-child { border-bottom: none; }
+        .finding-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+        .finding-status { font-family: 'DM Mono', monospace; font-size: 10px; padding: 2px 7px; border-radius: 4px; font-weight: 500; }
+        .PASS { background: #E1F5EE; color: #085041; }
+        .PARTIAL { background: #FAEEDA; color: #633806; }
+        .FAIL { background: #FCEBEB; color: #791F1F; }
+        .finding-cat { font-size: 13px; font-weight: 500; color: #111; }
+        .finding-text { font-size: 12px; color: #666; line-height: 1.5; margin-bottom: 4px; }
+        .finding-rec { font-size: 12px; color: #185FA5; line-height: 1.5; }
+        .finding-clause { font-family: 'DM Mono', monospace; font-size: 10px; color: #bbb; margin-top: 3px; }
+        .priority-list { list-style: none; }
+        .priority-list li { font-size: 13px; color: #444; padding: 8px 0; border-bottom: 0.5px solid #f0f0ee; display: flex; gap: 10px; align-items: flex-start; line-height: 1.5; }
+        .priority-list li:last-child { border-bottom: none; }
+        .pri-num { font-family: 'DM Mono', monospace; font-size: 11px; color: #185FA5; font-weight: 500; flex-shrink: 0; margin-top: 1px; }
+        .deadline-note { background: #FAEEDA; border-radius: 8px; padding: 12px 14px; font-size: 13px; color: #633806; margin-top: 12px; }
+        .cert-btn { width: 100%; padding: 12px; background: #185FA5; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; margin-top: 16px; }
+        .cert-link { display: block; text-align: center; margin-top: 10px; font-size: 12px; color: #185FA5; text-decoration: none; font-family: 'DM Mono', monospace; }
+        .footer { text-align: center; font-size: 11px; color: #bbb; margin-top: 28px; padding-top: 16px; border-top: 0.5px solid #e8e8e5; font-family: 'DM Mono', monospace; }
+        .footer a { color: #185FA5; text-decoration: none; }
+    </style>
+</head>
+<body>
+<div class="topbar">
+    <div class="logo">
+        <div class="logo-mark">
+            <svg viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="12" rx="1" fill="white" opacity="0.9"/><rect x="9" y="2" width="5" height="7" rx="1" fill="white" opacity="0.6"/><rect x="9" y="11" width="5" height="3" rx="1" fill="white" opacity="0.6"/></svg>
+        </div>
+        <span class="logo-text">DIKE AI</span>
+        <span class="logo-badge">v1.3</span>
+    </div>
+    <div class="nav">
+        <a href="/audit" class="inactive">DIKE Audit</a>
+        <a href="/monitor" class="inactive">DIKE Monitor</a>
+        <a href="/" class="inactive">DIKE Pulse</a>
+        <a href="/dpdp" class="active">DPDP Check</a>
+    </div>
+</div>
+
+<div class="body">
+    <div class="hero">
+        <div class="eyebrow"><span class="hero-dot"></span> DPDP Act 2023 — Guided Compliance Check</div>
+        <h1>Is your organisation<br><strong>DPDP compliant?</strong></h1>
+        <p>Answer 5 simple questions. Get a detailed compliance report with scores, findings, and priority actions — in under 3 minutes.</p>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-wrap">
+        <div class="progress-steps">
+            <div class="ps active" id="ps1"></div>
+            <div class="ps" id="ps2"></div>
+            <div class="ps" id="ps3"></div>
+            <div class="ps" id="ps4"></div>
+            <div class="ps" id="ps5"></div>
+            <div class="ps" id="ps6"></div>
+        </div>
+        <div class="progress-label" id="progress-label">Step 1 of 6</div>
+    </div>
+
+    <!-- Step 0: Org Info -->
+    <div class="step active" id="step-0">
+        <div class="card">
+            <div class="step-num">Before we start</div>
+            <div class="step-title">Tell us about your organisation</div>
+            <div class="step-sub">This helps personalise your compliance report.</div>
+            <div class="org-fields">
+                <div class="field-wrap">
+                    <label>Organisation name</label>
+                    <input type="text" id="org_name" placeholder="Acme Startup Pvt Ltd">
+                </div>
+                <div class="field-wrap">
+                    <label>Your email</label>
+                    <input type="email" id="org_email" placeholder="you@company.com">
+                </div>
+            </div>
+            <div class="btn-row">
+                <div></div>
+                <button class="btn-next" onclick="nextStep(0)">Start Audit &rarr;</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Steps 1-5: Questions -->
+    {% for q in questions %}
+    <div class="step" id="step-{{ q.step }}">
+        <div class="card">
+            <div class="step-num">Step {{ q.step }} of 5</div>
+            <div class="step-title">{{ q.title }}</div>
+            <div class="step-sub">{% if q.type == 'multi' %}Select all that apply.{% else %}Select one.{% endif %}</div>
+            <div class="options" id="opts-{{ q.step }}">
+                {% for opt in q.options %}
+                <div class="opt-item {% if q.type == 'single' %}single-item{% endif %}"
+                     onclick="toggleOpt(this, '{{ q.field }}', '{{ opt.id }}', '{{ q.type }}')"
+                     data-field="{{ q.field }}" data-id="{{ opt.id }}">
+                    <div class="opt-check"></div>
+                    <span class="opt-label">{{ opt.label }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="btn-row">
+                <button class="btn-back" onclick="prevStep({{ q.step }})">&#8592; Back</button>
+                <button class="btn-next" id="next-{{ q.step }}" onclick="nextStep({{ q.step }})">
+                    {% if q.step == 5 %}Generate Report &rarr;{% else %}Next &rarr;{% endif %}
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- Loading -->
+    <div class="loading-wrap" id="loading">
+        <div class="card" style="text-align:center;padding:48px;">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Analysing your responses against DPDP Act 2023...</div>
+            <div style="font-size:12px;color:#bbb;margin-top:8px;">This takes about 15 seconds</div>
+        </div>
+    </div>
+
+    <!-- Results -->
+    <div class="results-wrap" id="results">
+        <div class="score-hero" id="score-hero">
+            <div style="font-size:13px;opacity:0.7;margin-bottom:8px;" id="res-org-name"></div>
+            <div class="score-num" id="res-score">--</div>
+            <div class="score-label">DPDP Compliance Score</div>
+            <div class="score-risk" id="res-risk"></div>
+        </div>
+
+        <div class="summary-card">
+            <span class="slabel">Executive Summary</span>
+            <div class="summary-text" id="res-summary"></div>
+        </div>
+
+        <div class="summary-card">
+            <span class="slabel">Compliance Score by Category</span>
+            <div class="score-bars" id="res-scores"></div>
+        </div>
+
+        <div class="summary-card">
+            <span class="slabel">Detailed Findings</span>
+            <div id="res-findings"></div>
+        </div>
+
+        <div class="summary-card">
+            <span class="slabel">Priority Actions</span>
+            <ul class="priority-list" id="res-actions"></ul>
+            <div class="deadline-note" id="res-deadline"></div>
+        </div>
+
+        <div class="summary-card">
+            <span class="slabel">Your Compliance Certificate</span>
+            <p style="font-size:13px;color:#666;margin-bottom:12px;">Generate a shareable compliance certificate for your organisation.</p>
+            <button class="cert-btn" id="cert-btn" onclick="generateCert()">Generate Certificate &rarr;</button>
+            <a class="cert-link" id="cert-link" style="display:none;"></a>
+        </div>
+    </div>
+
+    <div class="footer">
+        Powered by <a href="https://strategicpolicylab.com">Strategic Policy Lab</a> &nbsp;&middot;&nbsp; Built with Groq + LLaMA 3.3
+    </div>
+</div>
+
+<script>
+var currentStep = 0;
+var answers = {};
+var auditId = null;
+
+function showStep(n) {
+    document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+    var el = document.getElementById('step-' + n);
+    if (el) el.classList.add('active');
+    // Update progress
+    for (var i = 1; i <= 6; i++) {
+        var ps = document.getElementById('ps' + i);
+        if (!ps) continue;
+        ps.className = 'ps';
+        if (i < n) ps.classList.add('done');
+        else if (i === n) ps.classList.add('active');
+    }
+    var label = document.getElementById('progress-label');
+    if (label) label.textContent = n === 0 ? 'Getting started' : 'Step ' + n + ' of 6';
+    currentStep = n;
+    window.scrollTo(0, 0);
+}
+
+function nextStep(from) {
+    if (from === 0) {
+        showStep(1);
+        return;
+    }
+    showStep(from + 1);
+    if (from === 5) {
+        submitAudit();
+    }
+}
+
+function prevStep(from) {
+    showStep(from - 1);
+}
+
+function toggleOpt(el, field, id, type) {
+    if (type === 'single') {
+        el.closest('.options').querySelectorAll('.opt-item').forEach(o => o.classList.remove('selected'));
+        el.classList.add('selected');
+        answers[field] = id;
+    } else {
+        el.classList.toggle('selected');
+        if (!answers[field]) answers[field] = [];
+        if (el.classList.contains('selected')) {
+            if (!answers[field].includes(id)) answers[field].push(id);
+        } else {
+            answers[field] = answers[field].filter(v => v !== id);
+        }
+    }
+}
+
+function submitAudit() {
+    document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+    document.getElementById('loading').style.display = 'block';
+    window.scrollTo(0, 0);
+
+    var org_name = document.getElementById('org_name').value || 'Your Organisation';
+    var org_email = document.getElementById('org_email').value || '';
+
+    fetch('/dpdp/analyse', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            org_name: org_name,
+            org_email: org_email,
+            answers: answers
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById('loading').style.display = 'none';
+        showResults(data, org_name);
+    })
+    .catch(err => {
+        document.getElementById('loading').style.display = 'none';
+        alert('Error generating report. Please try again.');
+    });
+}
+
+function showResults(data, org_name) {
+    auditId = data.audit_id;
+    document.getElementById('results').style.display = 'block';
+    document.getElementById('res-org-name').textContent = org_name;
+    document.getElementById('res-score').textContent = data.overall_score;
+    document.getElementById('res-summary').textContent = data.executive_summary;
+
+    var risk = document.getElementById('res-risk');
+    risk.textContent = data.risk_level + ' RISK';
+    risk.className = 'score-risk risk-' + data.risk_level;
+
+    // Score bars
+    var barsHtml = '';
+    var colors = {good: '#1D9E75', moderate: '#185FA5', needs_work: '#EF9F27', critical: '#E24B4A'};
+    if (data.scores) {
+        Object.entries(data.scores).forEach(([cat, info]) => {
+            var color = colors[info.status] || '#185FA5';
+            barsHtml += '<div class="score-row">' +
+                '<div class="score-cat">' + cat + '</div>' +
+                '<div class="score-bar-wrap"><div class="score-bar-fill" style="width:' + info.score + '%;background:' + color + '"></div></div>' +
+                '<div class="score-val">' + info.score + '</div>' +
+                '</div>';
+        });
+    }
+    document.getElementById('res-scores').innerHTML = barsHtml;
+
+    // Findings
+    var findingsHtml = '';
+    if (data.findings) {
+        data.findings.forEach(f => {
+            findingsHtml += '<div class="finding-item">' +
+                '<div class="finding-top">' +
+                '<span class="finding-status ' + f.status + '">' + f.status + '</span>' +
+                '<span class="finding-cat">' + f.category + '</span>' +
+                '</div>' +
+                '<div class="finding-text">' + f.finding + '</div>' +
+                '<div class="finding-rec">&#8594; ' + f.recommendation + '</div>' +
+                '<div class="finding-clause">' + (f.dpdp_clause || '') + '</div>' +
+                '</div>';
+        });
+    }
+    document.getElementById('res-findings').innerHTML = findingsHtml;
+
+    // Priority actions
+    var actionsHtml = '';
+    if (data.priority_actions) {
+        data.priority_actions.forEach((a, i) => {
+            actionsHtml += '<li><span class="pri-num">0' + (i+1) + '</span>' + a + '</li>';
+        });
+    }
+    document.getElementById('res-actions').innerHTML = actionsHtml;
+    document.getElementById('res-deadline').textContent = data.deadline_note || '';
+
+    window.scrollTo(0, 0);
+}
+
+function generateCert() {
+    if (!auditId) return;
+    var org_name = document.getElementById('org_name').value || 'Your Organisation';
+    fetch('/dpdp/certificate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({audit_id: auditId, org_name: org_name})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.cert_url) {
+            var btn = document.getElementById('cert-btn');
+            var link = document.getElementById('cert-link');
+            btn.style.display = 'none';
+            link.style.display = 'block';
+            link.href = data.cert_url;
+            link.textContent = data.cert_url;
+            link.target = '_blank';
+        }
+    });
+}
+</script>
+</body>
+</html>
+"""
+
+
+@app.route("/dpdp", methods=["GET"])
+def dpdp():
+    from dpdp_audit import QUESTIONS
+    return render_template_string(DPDP_PAGE, questions=QUESTIONS)
+
+
+@app.route("/dpdp/analyse", methods=["POST"])
+def dpdp_analyse():
+    from dpdp_audit import calculate_scores, generate_dpdp_analysis
+    from database import save_audit, save_certificate
+    data = request.get_json()
+    org_name = data.get("org_name", "Organisation")
+    org_email = data.get("org_email", "")
+    answers = data.get("answers", {})
+
+    # Calculate scores
+    scores = calculate_scores(answers)
+
+    # Generate AI analysis
+    analysis = generate_dpdp_analysis(answers, scores)
+
+    # Save to database
+    audit_id = save_audit(org_name, org_email, answers, analysis.get("findings", []), scores)
+
+    # Save email
+    if org_email:
+        save_email(org_email, "dpdp_audit", "DPDP Act 2023")
+
+    # Build score info for frontend
+    status_map = {"good": range(80, 101), "moderate": range(60, 80), "needs_work": range(40, 60), "critical": range(0, 40)}
+    scores_info = {}
+    for cat, score in scores.items():
+        status = "needs_work"
+        for s, r in status_map.items():
+            if score in r:
+                status = s
+                break
+        scores_info[cat] = {"score": score, "status": status}
+
+    return json.dumps({
+        "audit_id": audit_id,
+        "overall_score": analysis.get("overall_score", 0),
+        "risk_level": analysis.get("risk_level", "MEDIUM"),
+        "executive_summary": analysis.get("executive_summary", ""),
+        "findings": analysis.get("findings", []),
+        "priority_actions": analysis.get("priority_actions", []),
+        "deadline_note": analysis.get("deadline_note", ""),
+        "scores": scores_info
+    })
+
+
+@app.route("/dpdp/certificate", methods=["POST"])
+def dpdp_certificate():
+    from database import save_certificate, get_audit
+    data = request.get_json()
+    audit_id = data.get("audit_id")
+    org_name = data.get("org_name", "Organisation")
+
+    audit, scores = get_audit(audit_id)
+    if not audit:
+        return json.dumps({"error": "Audit not found"}), 404
+
+    cert_slug = save_certificate(audit_id, org_name, audit["overall_score"])
+    cert_url = f"{request.host_url}cert/{cert_slug}"
+    return json.dumps({"cert_url": cert_url, "cert_slug": cert_slug})
+
+
+@app.route("/cert/<cert_slug>")
+def certificate(cert_slug):
+    from database import get_certificate
+    cert = get_certificate(cert_slug)
+    if not cert:
+        return "Certificate not found", 404
+
+    score = cert["overall_score"]
+    if score >= 80:
+        color = "#1D9E75"
+        badge_bg = "#E1F5EE"
+        badge_color = "#085041"
+    elif score >= 60:
+        color = "#185FA5"
+        badge_bg = "#E6F1FB"
+        badge_color = "#0C447C"
+    elif score >= 40:
+        color = "#EF9F27"
+        badge_bg = "#FAEEDA"
+        badge_color = "#633806"
+    else:
+        color = "#E24B4A"
+        badge_bg = "#FCEBEB"
+        badge_color = "#791F1F"
+
+    cert_html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DIKE Compliance Certificate — {cert['org_name']}</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+        body {{ font-family: 'DM Sans', sans-serif; background: #f4f4f2; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }}
+        .cert {{ background: white; border-radius: 16px; border: 0.5px solid #e8e8e5; max-width: 520px; width: 100%; padding: 40px; text-align: center; }}
+        .cert-logo {{ display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 32px; }}
+        .logo-mark {{ width: 28px; height: 28px; background: #185FA5; border-radius: 6px; display: flex; align-items: center; justify-content: center; }}
+        .logo-mark svg {{ width: 16px; height: 16px; }}
+        .logo-text {{ font-size: 15px; font-weight: 500; color: #111; }}
+        .cert-title {{ font-family: 'DM Mono', monospace; font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }}
+        .cert-org {{ font-size: 24px; font-weight: 500; color: #111; letter-spacing: -0.02em; margin-bottom: 24px; }}
+        .cert-score {{ font-size: 72px; font-weight: 300; color: {color}; letter-spacing: -0.04em; line-height: 1; margin-bottom: 4px; }}
+        .cert-score-label {{ font-size: 13px; color: #999; margin-bottom: 16px; }}
+        .cert-status {{ display: inline-block; font-size: 13px; font-weight: 500; padding: 6px 16px; border-radius: 20px; background: {badge_bg}; color: {badge_color}; margin-bottom: 28px; }}
+        .cert-table {{ width: 100%; border-top: 0.5px solid #e8e8e5; text-align: left; }}
+        .cert-table tr {{ border-bottom: 0.5px solid #f4f4f2; }}
+        .cert-table td {{ padding: 10px 0; font-size: 13px; }}
+        .cert-table td:first-child {{ color: #999; font-family: 'DM Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }}
+        .cert-table td:last-child {{ color: #333; font-weight: 500; text-align: right; }}
+        .cert-footer {{ margin-top: 28px; font-size: 11px; color: #bbb; font-family: 'DM Mono', monospace; }}
+        .cert-footer a {{ color: #185FA5; text-decoration: none; }}
+        .divider {{ height: 0.5px; background: #e8e8e5; margin: 24px 0; }}
+        .audit-btn {{ display: inline-block; margin-top: 20px; padding: 10px 24px; background: #185FA5; color: white; border-radius: 7px; font-size: 13px; font-weight: 500; text-decoration: none; }}
+    </style>
+</head>
+<body>
+<div class="cert">
+    <div class="cert-logo">
+        <div class="logo-mark">
+            <svg viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="12" rx="1" fill="white" opacity="0.9"/><rect x="9" y="2" width="5" height="7" rx="1" fill="white" opacity="0.6"/><rect x="9" y="11" width="5" height="3" rx="1" fill="white" opacity="0.6"/></svg>
+        </div>
+        <span class="logo-text">DIKE AI</span>
+    </div>
+    <div class="cert-title">Compliance Certificate</div>
+    <div class="cert-org">{cert['org_name']}</div>
+    <div class="cert-score">{cert['overall_score']}</div>
+    <div class="cert-score-label">DPDP Compliance Score out of 100</div>
+    <div class="cert-status">{cert['status_label']}</div>
+    <div class="divider"></div>
+    <table class="cert-table">
+        <tr><td>Framework</td><td>{cert['regulation']}</td></tr>
+        <tr><td>Issued</td><td>{cert['issued_at']}</td></tr>
+        <tr><td>Valid until</td><td>{cert['valid_until']}</td></tr>
+        <tr><td>Audited by</td><td>DIKE AI</td></tr>
+    </table>
+    <div class="cert-footer">
+        <div class="divider"></div>
+        Powered by <a href="https://strategicpolicylab.com">Strategic Policy Lab</a><br>
+        dike.strategicpolicylab.com
+    </div>
+    <a href="/dpdp" class="audit-btn">Run your own audit &rarr;</a>
+</div>
+</body>
+</html>"""
+    return cert_html
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
