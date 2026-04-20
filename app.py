@@ -259,6 +259,7 @@ HTML_PAGE = """
         <a href="/audit" class="active">DIKE Audit</a>
         <a href="/monitor" class="inactive">DIKE Monitor</a>
         <a href="/" class="inactive">DIKE Pulse</a>
+        <a href="/dpdp" class="inactive">DPDP Check</a>
     </div>
 </div>
 
@@ -515,6 +516,7 @@ MONITOR_PAGE = """
         <a href="/audit" class="inactive">DIKE Audit</a>
         <a href="/monitor" class="active">DIKE Monitor</a>
         <a href="/" class="inactive">DIKE Pulse</a>
+        <a href="/dpdp" class="inactive">DPDP Check</a>
     </div>
 </div>
 
@@ -804,6 +806,7 @@ PULSE_PAGE = """
         <a href="/audit" class="inactive">DIKE Audit</a>
         <a href="/monitor" class="inactive">DIKE Monitor</a>
         <a href="/" class="active">DIKE Pulse</a>
+        <a href="/dpdp" class="inactive">DPDP Check</a>
     </div>
 </div>
 
