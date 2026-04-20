@@ -1991,6 +1991,19 @@ function showResults(data, org_name) {
     document.getElementById('res-actions').innerHTML = actionsHtml;
     document.getElementById('res-deadline').textContent = data.deadline_note || '';
 
+    // Show dashboard link
+    if (data.dashboard_url) {
+        var dashBtn = document.createElement('a');
+        dashBtn.href = data.dashboard_url;
+        dashBtn.className = 'cert-btn';
+        dashBtn.style.marginTop = '8px';
+        dashBtn.style.display = 'block';
+        dashBtn.style.textAlign = 'center';
+        dashBtn.style.textDecoration = 'none';
+        dashBtn.textContent = 'View Full Dashboard →';
+        document.getElementById('cert-btn').parentNode.insertBefore(dashBtn, document.getElementById('cert-btn'));
+    }
+
     window.scrollTo(0, 0);
 }
 
@@ -2068,7 +2081,8 @@ def dpdp_analyse():
         "findings": analysis.get("findings", []),
         "priority_actions": analysis.get("priority_actions", []),
         "deadline_note": analysis.get("deadline_note", ""),
-        "scores": scores_info
+        "scores": scores_info,
+        "dashboard_url": f"/dashboard/{audit_id}"
     })
 
 
@@ -2174,6 +2188,174 @@ def certificate(cert_slug):
 </body>
 </html>"""
     return cert_html
+
+
+@app.route("/dashboard/<audit_id>")
+def dashboard(audit_id):
+    from database import get_audit
+    audit, scores = get_audit(audit_id)
+    if not audit:
+        return "Dashboard not found. Please complete a DPDP audit first.", 404
+
+    import json as json_mod
+    findings = audit.get("results") or []
+    overall = audit["overall_score"]
+
+    if overall >= 80:
+        score_color = "#1D9E75"
+        risk_label = "Low Risk"
+        risk_bg = "#E1F5EE"
+        risk_color = "#085041"
+    elif overall >= 60:
+        score_color = "#185FA5"
+        risk_label = "Moderate Risk"
+        risk_bg = "#E6F1FB"
+        risk_color = "#0C447C"
+    elif overall >= 40:
+        score_color = "#EF9F27"
+        risk_label = "Needs Work"
+        risk_bg = "#FAEEDA"
+        risk_color = "#633806"
+    else:
+        score_color = "#E24B4A"
+        risk_label = "High Risk"
+        risk_bg = "#FCEBEB"
+        risk_color = "#791F1F"
+
+    status_colors = {
+        "good": "#1D9E75",
+        "moderate": "#185FA5",
+        "needs_work": "#EF9F27",
+        "critical": "#E24B4A"
+    }
+
+    scores_html = ""
+    for s in scores:
+        bar_color = status_colors.get(s["status"], "#185FA5")
+        scores_html += f"""
+        <div style="margin-bottom:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+                <span style="font-size:13px;color:#333;">{s["category"]}</span>
+                <span style="font-family:'DM Mono',monospace;font-size:12px;color:#999;">{s["score"]}/100</span>
+            </div>
+            <div style="height:6px;background:#f0f0ee;border-radius:3px;overflow:hidden;">
+                <div style="width:{s["score"]}%;height:100%;background:{bar_color};border-radius:3px;"></div>
+            </div>
+        </div>"""
+
+    findings_html = ""
+    status_styles = {
+        "PASS": ("background:#E1F5EE;color:#085041;", ""),
+        "PARTIAL": ("background:#FAEEDA;color:#633806;", ""),
+        "FAIL": ("background:#FCEBEB;color:#791F1F;", "")
+    }
+    for f in findings:
+        st = f.get("status", "PARTIAL")
+        badge_style = status_styles.get(st, status_styles["PARTIAL"])[0]
+        findings_html += f"""
+        <div style="padding:14px 0;border-bottom:0.5px solid #f0f0ee;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
+                <span style="font-family:'DM Mono',monospace;font-size:10px;padding:2px 7px;border-radius:4px;font-weight:500;{badge_style}">{st}</span>
+                <span style="font-size:13px;font-weight:500;color:#111;">{f.get("category","")}</span>
+            </div>
+            <div style="font-size:12px;color:#666;margin-bottom:4px;line-height:1.5;">{f.get("finding","")}</div>
+            <div style="font-size:12px;color:#185FA5;line-height:1.5;">&#8594; {f.get("recommendation","")}</div>
+            <div style="font-family:'DM Mono',monospace;font-size:10px;color:#bbb;margin-top:3px;">{f.get("dpdp_clause","")}</div>
+        </div>"""
+
+    next_audit = "July 2026"
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DIKE Dashboard — {audit.get("org_name","Organisation")}</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+        body {{ font-family: 'DM Sans', sans-serif; background: #f4f4f2; min-height: 100vh; }}
+        .topbar {{ background: #fff; border-bottom: 0.5px solid #e8e8e5; padding: 0 32px; display: flex; align-items: center; justify-content: space-between; height: 56px; position: sticky; top: 0; z-index: 100; }}
+        .logo {{ display: flex; align-items: center; gap: 10px; }}
+        .logo-mark {{ width: 28px; height: 28px; background: #185FA5; border-radius: 6px; display: flex; align-items: center; justify-content: center; }}
+        .logo-text {{ font-size: 15px; font-weight: 500; color: #111; }}
+        .logo-badge {{ font-family: 'DM Mono', monospace; font-size: 10px; background: #E6F1FB; color: #185FA5; padding: 2px 7px; border-radius: 4px; }}
+        .nav {{ display: flex; gap: 4px; }}
+        .nav a {{ padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; text-decoration: none; border: 0.5px solid #ddd; color: #666; }}
+        .nav a:hover {{ background: #f4f4f2; color: #111; }}
+        .body {{ max-width: 760px; margin: 0 auto; padding: 36px 24px 60px; }}
+        .card {{ background: #fff; border-radius: 12px; border: 0.5px solid #e8e8e5; padding: 24px; margin-bottom: 16px; }}
+        .slabel {{ font-family: 'DM Mono', monospace; font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 14px; display: block; }}
+        .btn {{ padding: 10px 20px; border-radius: 7px; font-size: 13px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif; text-decoration: none; display: inline-block; }}
+        .btn-primary {{ background: #185FA5; color: white; border: none; }}
+        .btn-outline {{ background: transparent; color: #666; border: 0.5px solid #ddd; }}
+    </style>
+</head>
+<body>
+<div class="topbar">
+    <div class="logo">
+        <div class="logo-mark">
+            <svg viewBox="0 0 16 16" fill="none" width="16" height="16"><rect x="2" y="2" width="5" height="12" rx="1" fill="white" opacity="0.9"/><rect x="9" y="2" width="5" height="7" rx="1" fill="white" opacity="0.6"/><rect x="9" y="11" width="5" height="3" rx="1" fill="white" opacity="0.6"/></svg>
+        </div>
+        <span class="logo-text">DIKE AI</span>
+        <span class="logo-badge">Dashboard</span>
+    </div>
+    <div class="nav">
+        <a href="/audit">DIKE Audit</a>
+        <a href="/monitor">DIKE Monitor</a>
+        <a href="/">DIKE Pulse</a>
+        <a href="/dpdp">DPDP Check</a>
+    </div>
+</div>
+
+<div class="body">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+        <div>
+            <div style="font-family:'DM Mono',monospace;font-size:11px;color:#185FA5;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Compliance Dashboard</div>
+            <div style="font-size:24px;font-weight:400;color:#111;letter-spacing:-0.02em;">{audit.get("org_name","Organisation")}</div>
+            <div style="font-size:13px;color:#999;margin-top:3px;">Last audited: {audit.get("created_at","")[:10]} &nbsp;&middot;&nbsp; Next recommended: {next_audit}</div>
+        </div>
+        <a href="/dpdp" class="btn btn-primary">Re-audit &rarr;</a>
+    </div>
+
+    <!-- Score overview -->
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:16px;margin-bottom:16px;">
+        <div class="card" style="text-align:center;">
+            <span class="slabel">Overall score</span>
+            <div style="font-size:64px;font-weight:300;color:{score_color};letter-spacing:-0.04em;line-height:1;">{overall}</div>
+            <div style="font-size:12px;color:#999;margin:4px 0 10px;">out of 100</div>
+            <span style="font-size:12px;font-weight:500;padding:4px 12px;border-radius:20px;background:{risk_bg};color:{risk_color};">{risk_label}</span>
+        </div>
+        <div class="card">
+            <span class="slabel">Score by category</span>
+            {scores_html}
+        </div>
+    </div>
+
+    <!-- Findings -->
+    <div class="card">
+        <span class="slabel">Detailed findings</span>
+        {findings_html if findings_html else '<div style="font-size:13px;color:#999;">No findings available.</div>'}
+    </div>
+
+    <!-- Actions -->
+    <div class="card">
+        <span class="slabel">Actions</span>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <a href="/dpdp" class="btn btn-primary">Run new audit</a>
+            <a href="/cert/{audit_id.lower()}-{audit_id.lower()}" class="btn btn-outline">View certificate</a>
+        </div>
+        <div style="font-size:12px;color:#bbb;margin-top:12px;font-family:'DM Mono',monospace;">Dashboard ID: {audit_id}</div>
+    </div>
+
+    <div style="text-align:center;font-size:11px;color:#bbb;margin-top:24px;font-family:'DM Mono',monospace;">
+        Powered by <a href="https://strategicpolicylab.com" style="color:#185FA5;text-decoration:none;">Strategic Policy Lab</a>
+    </div>
+</div>
+</body>
+</html>"""
+    return html
+
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
